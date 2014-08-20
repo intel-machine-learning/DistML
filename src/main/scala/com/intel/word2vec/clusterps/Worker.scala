@@ -49,7 +49,7 @@ outputFolder : String
 
   val wordTree = w.clone()
 
-  val FETCH_TRAIN_BULK_LINES = 1000
+  val FETCH_TRAIN_BULK_LINES = 200
 
   var currentPool = new W2VWorkerPool("pool A")
   var bufferedPool = new W2VWorkerPool("pool B")
@@ -376,15 +376,6 @@ outputFolder : String
       added = f.addIndex(index)
       serverIndex += 1
     }
-  }
-
-  def getServerAddr(index : Int) : String = {
-    for (s <- servers) {
-      if ((index >= s.fromIndex) && (index <= s.toIndex)) {
-        return s.address
-      }
-    }
-    return "InvalidServer"
   }
 
   def getFreeData() : WordNodeData = {

@@ -119,8 +119,7 @@ object ParamServerDriver {
       trainingDriverOS.writeInt(Constants.PARAM_SERVER_COUNT)
       for (s <- servers) {
         trainingDriverOS.writeUTF(s.address)
-        trainingDriverOS.writeInt(s.fromIndex)
-        trainingDriverOS.writeInt(s.toIndex)
+        trainingDriverOS.writeInt(s.serverIndex)
         trainingDriverOS.writeInt(s.pushServicePort)
         trainingDriverOS.writeInt(s.fetchServicePort)
       }
@@ -151,13 +150,10 @@ object ParamServerDriver {
       println("all workers are done, notify param server...")
       dos.write(1)
 
-      val count = IOHelper.readInt(dis)
-      println("" + count + " params to save from server: " + s.getInetAddress.getHostName)
+      var wordIndex = IOHelper.readInt(dis)
       var dataBytes = new Array[Byte](Constants.MODEL_PARAM_SIZE)
-      for (i <- 0 to count-1) {
-          var index = IOHelper.readInt(dis)
-          //println("index: " + index)
-          val w = wordTree.getWord(index)
+      while (wordIndex >= 0) {
+          val w = wordTree.getWord(wordIndex)
           val str = w.name + " "
           out.write(str.getBytes("UTF-8"))
 
@@ -168,6 +164,8 @@ object ParamServerDriver {
           dis.read(dataBytes)
           out.write(dataBytes)
           out.writeByte(0x0a)
+
+        wordIndex = IOHelper.readInt(dis)
       }
     }
   }
@@ -184,9 +182,8 @@ object ParamServerDriver {
 
       val partitionSize = (wordTree.nodeCount() + Constants.PARAM_SERVER_COUNT-1) / Constants.PARAM_SERVER_COUNT
       for (i <- 0 to Constants.PARAM_SERVER_COUNT - 1) {
-        servers(i) = new ServerInfo(partitionSize * i,
-          Math.min(partitionSize * (i + 1) - 1, wordTree.nodeCount() - 1),
-          "", 0, 0)
+        servers(i) = new ServerInfo()
+        servers(i).serverIndex = i
       }
       println("model initialized: " + wordTree.vocabSize)
 
@@ -241,11 +238,10 @@ object ParamServerDriver {
           server.pushServicePort = IOHelper.readInt(dis)
           server.fetchServicePort = IOHelper.readInt(dis)
           println("parameter server " + count + " from " + server.address +
-              ", fromIndex: " + server.fromIndex + ", toIndex: " + server.toIndex +
+              ", index: " + server.serverIndex +
               ", push port: " + server.pushServicePort + ", fetch port: " + server.fetchServicePort)
 
-          dos.writeInt(server.fromIndex)
-          dos.writeInt(server.toIndex)
+          dos.writeInt(server.serverIndex)
 
           serverListeners(count) = new ParamServerListener(count, s)
           serverListeners(count).start()
@@ -276,8 +272,7 @@ object ParamServerDriver {
     var sparkHome = args(1)
     var sparkMem = args(2)
     var appJars = args(3)
-    val trainingFile = args(4)
-    outputFolder = args(5)
+    outputFolder = args(4)
 
     val conf = new SparkConf()
       .setMaster(sparkMaster)
@@ -287,7 +282,7 @@ object ParamServerDriver {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.driver.port", "34225")
       .set("spark.local.dir", "/mnt/disk1/spark")
-      .setJars(Seq("target/scala-2.10/word2vec_2.10-1.0.jar"))
+      .setJars(Seq(appJars))
     val spark = new SparkContext(conf)
 
     start(spark)

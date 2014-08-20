@@ -44,7 +44,7 @@ worker : Worker
 
   def addIndex(index : Int) : Boolean = {
     //println("addindex: " + index + ", " + server.fromIndex + ", " + server.toIndex)
-    if ((index >= server.fromIndex) && (index <= server.toIndex)) {
+    if (server.accept(index)) {
       //queue.enqueue(index)
       queue.add(index)
 

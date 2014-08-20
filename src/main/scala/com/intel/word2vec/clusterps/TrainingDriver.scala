@@ -219,8 +219,8 @@ object TrainingDriver {
       .setJars(Seq("target/scala-2.10/word2vec_2.10-1.0.jar"))
     val spark = new SparkContext(conf)
 
-    //val lines = spark.textFile(trainingFile).map(normalizeString).persist(StorageLevel.MEMORY_AND_DISK)
-    val lines = spark.textFile(trainingFile).persist(StorageLevel.MEMORY_AND_DISK)
+    val lines = spark.textFile(trainingFile).map(normalizeString).persist(StorageLevel.MEMORY_AND_DISK)
+    //val lines = spark.textFile(trainingFile).persist(StorageLevel.MEMORY_AND_DISK)
     val words = lines.flatMap(line => line.split(" ")).filter( s => s.length > 0).map(word => (word, 1L))
     val lineCount = lines.count()
     println("lineCount=" + lineCount)
@@ -251,13 +251,13 @@ object TrainingDriver {
 
     var psServers = new Array[ServerInfo](psCount)
     for (i <- 0 to psCount-1) {
-      var address = dis.readUTF()
-      var fromIndex = IOHelper.readInt(dis)
-      var toIndex = IOHelper.readInt(dis)
-      var pushServicePort = IOHelper.readInt(dis)
-      var fetchServicePort = IOHelper.readInt(dis)
-      psServers(i) = new ServerInfo(fromIndex, toIndex, address, pushServicePort, fetchServicePort)
-      println("param server: " + address + ", " + fromIndex + ", " + toIndex)
+      psServers(i) = new ServerInfo()
+      psServers(i).address = dis.readUTF()
+      psServers(i).serverIndex = IOHelper.readInt(dis)
+      psServers(i).pushServicePort = IOHelper.readInt(dis)
+      psServers(i).fetchServicePort = IOHelper.readInt(dis)
+
+      println("param server: " + psServers(i).address + ", " + psServers(i).serverIndex)
     }
     println("all param servers are ready, start training now")
 

@@ -13,11 +13,9 @@ import com.intel.word2vec.common.{IOHelper, FloatOps}
 class Server(
 driverAddress : String,
 vocabSize : Int
-//wordTree : WordTree
 ) {
 
-  var fromIndex = 0
-  var toIndex = 0
+  var serverIndex = 0
 
   var pushServicePort: Int = 0
   var fetchServicePort: Int = 0
@@ -35,7 +33,7 @@ vocabSize : Int
   var dos : DataOutputStream = null
 
   def getData(index : Int) : WordNodeData = {
-    return partition(index - fromIndex)
+    return partition(index / Constants.PARAM_SERVER_COUNT)
   }
 
   def sendInfoToMonitor() {
@@ -49,25 +47,23 @@ vocabSize : Int
     dos.writeInt(pushServicePort)
     dos.writeInt(fetchServicePort)
 
-    fromIndex = IOHelper.readInt(dis)
-    toIndex = IOHelper.readInt(dis)
-    println("fromIndex: " + fromIndex + ", toIndex: " + toIndex)
+    serverIndex = IOHelper.readInt(dis)
+    println("serverIndex: " + serverIndex)
 
-    partition = new Array[WordNodeData](toIndex - fromIndex + 1)
+    partition = new Array[WordNodeData](vocabSize/Constants.PARAM_SERVER_COUNT + 1)
 
     var d : WordNodeData = null
-    println("init nodes from " +fromIndex + " to " + toIndex)
-    for (i <- fromIndex to toIndex) {
+    for (i <- 0 to partition.length - 1) {
       d = new WordNodeData(Constants.MODEL_DIMENSION)
-      d.index = i
+      d.index = i * Constants.PARAM_SERVER_COUNT + serverIndex
       d.init(Constants.initialAlpha)
-      partition(i-fromIndex) = d
+      partition(i) = d
       //wordTree.getWord(i).data = d
     }
     println("init done ")
 
     dos.writeInt(1)
-    println("param server ready: " + "fromIndex: " + fromIndex + ", toIndex: " + toIndex)
+    println("param server ready, serverIndex: " + serverIndex)
   }
 
   def start() {
@@ -80,34 +76,35 @@ vocabSize : Int
     p.start()
     f.start()
 
-
+    // waiting "work done" notification
     var workDoneIndicator = dis.read()
     println("workers have done their work, stopping myself")
-    println("fromIndex="+fromIndex + ", " + "toIndex=" + toIndex + ", vocalsize=" + vocabSize)
 
-    if (fromIndex < vocabSize) {
-      var end = Math.min(toIndex, vocabSize-1)
-      var count = end - fromIndex + 1
-      dos.writeInt(count)
-      println("param count: " + count)
+//    if (fromIndex < vocabSize) {
+      //var end = Math.min(toIndex, vocabSize-1)
+      //var count = end - fromIndex + 1
+      //dos.writeInt(count)
+      //println("param count: " + count)
 
       var dataBytes = new Array[Byte](Constants.MODEL_DIMENSION * 4)
-      for (i <- fromIndex to end) {
-        dos.writeInt(i)
-
-        //var d = wordTree.getWord(i).data
-        var d = partition(i - fromIndex)
-
-        for (i <- 0 to Constants.MODEL_DIMENSION-1) {
-          FloatOps.getFloatBytes(d.syn0(i), dataBytes, i*4)
+      for (i <- 0 to partition.length - 1) {
+        var d = partition(i)
+        if (d.index < vocabSize) {
+          dos.writeInt(d.index)
+          for (i <- 0 to Constants.MODEL_DIMENSION-1) {
+            FloatOps.getFloatBytes(d.syn0(i), dataBytes, i*4)
+          }
+          dos.write(dataBytes)
         }
-        dos.write(dataBytes)
       }
-
+/*
     }
     else {
       dos.writeInt(0)
     }
+*/
+
+    dos.writeInt(-1)
 
     println("stopping fetch/push service: " )
     stopWork()

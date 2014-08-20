@@ -10,7 +10,7 @@ object Constants {
   //val PARAM_SERVER_PUSH_PORT = 9989
   //val PARAM_SERVER_FETCH_PORT = 9988
 
-  val PARAM_SERVER_COUNT = 6
+  val PARAM_SERVER_COUNT = 3
 
   // driver and monitor constants
   val NODE_TYPE_DRIVER = 1
@@ -34,7 +34,7 @@ object Constants {
 
   val MODEL_DIMENSION = 200
   val MODEL_PARAM_SIZE = MODEL_DIMENSION * 4
-  val MIN_WORD_FREQ = 250
+  val MIN_WORD_FREQ = 5
 
   val initialAlpha = 0.0025f
   val alphaThreshold = 0.0001f

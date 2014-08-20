@@ -25,7 +25,7 @@ worker : Worker
   var thread : Thread = null
 
   def addIndex(d : W2VWorkerNodeData) : Boolean = {
-    if ((d.deltaIndex >= server.fromIndex) && (d.deltaIndex <= server.toIndex)) {
+    if (server.accept(d.deltaIndex)) {
       queue.enqueue(d)
       return true
     }
