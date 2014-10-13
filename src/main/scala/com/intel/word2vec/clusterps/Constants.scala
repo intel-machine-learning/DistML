@@ -32,12 +32,14 @@ object Constants {
   val DEBUG_FETCH = false
   val DEBUG_FETCH_PROGRESS = false
 
-  val MODEL_DIMENSION = 200
-  val MODEL_PARAM_SIZE = MODEL_DIMENSION * 4
-  val MIN_WORD_FREQ = 5
+//  val MODEL_PARAM_SIZE = MODEL_DIMENSION * 4
 
   val initialAlpha = 0.0025f
   val alphaThreshold = 0.0001f
 
+  //var paramServerNetworkPrefix = "192"
+  var MODEL_DIMENSION = 200
 
+  //var MIN_WORD_FREQ = 50
+  //var BATCH_LINES = 1000
 }

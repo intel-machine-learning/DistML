@@ -9,6 +9,9 @@ import org.apache.hadoop.fs.{Path, FileSystem}
  * Created by He Yunlong on 7/26/14.
  */
 object IOHelper {
+  def readString(dis : DataInputStream) : String = {
+    return dis.readUTF()
+  }
 
   def readInt(dis : DataInputStream) : Int = {
     while (dis.available() < 4) {

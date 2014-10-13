@@ -1,33 +1,48 @@
 package com.intel.word2vec.clusterps
 
 /**
- * Created by He Yunlong on 7/11/14.
+ * Created by He Yunlong on 9/15/14.
  */
 class WordNode extends Serializable {
-  val MAX_CODE_LENGTH = 40
-
-  var name : String = ""
-
+  var name : String = null
   var index = 0
-  var binary = 0
-  var frequency = 0L
-  var parentIndex = 0
-
   var codeLen = 0
-  var code = new Array[Int](MAX_CODE_LENGTH)
-  var point = new Array[Int](MAX_CODE_LENGTH)
+  var code: Array[Int] = null
+  var point: Array[Int] = null
 
   var data : WordNodeData = null
 
+  def initFrom( w : HuffmanNode) {
+    name = w.name
+    index = w.index
+    codeLen = w.codeLen
+    if (codeLen > 0) {
+      code = new Array[Int](codeLen)
+      point = new Array[Int](codeLen)
+      for (i <- 0 to codeLen - 1) {
+        code(i) = w.code(i)
+      }
+      for (i <- 0 to codeLen - 1) {
+        point(i) = w.point(i)
+      }
+    }
+  }
+
   override def clone() : WordNode = {
     val w = new WordNode()
+    w.name = name
     w.index = index
     w.codeLen = codeLen
-    for (i <- 0 to MAX_CODE_LENGTH - 1) {
-      w.code(i) = code(i)
-      w.point(i) = point(i)
+    if (codeLen > 0) {
+      w.code = new Array[Int](codeLen)
+      w.point = new Array[Int](codeLen)
+      for (i <- 0 to codeLen - 1) {
+        w.code(i) = code(i)
+      }
+      for (i <- 0 to codeLen - 1) {
+        w.point(i) = point(i)
+      }
     }
-
     w
   }
 }

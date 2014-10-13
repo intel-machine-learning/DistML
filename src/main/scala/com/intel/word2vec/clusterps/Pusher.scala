@@ -14,7 +14,7 @@ worker : Worker
 ) extends Thread {
 
   var queue = new mutable.Queue[W2VWorkerNodeData]()
-  var dataBytes = new Array[Byte](Constants.MODEL_PARAM_SIZE)
+  var dataBytes = new Array[Byte](Constants.MODEL_DIMENSION * 4)
 
   var socket : Socket = null
   var dis : DataInputStream = null
@@ -73,7 +73,7 @@ worker : Worker
         if (queue.size > 0) {
           var count = 0
           var total = queue.size
-          println("push started: " + server.address + ", " + total)
+          //println("push started: " + server.address + ", " + total)
           dos.writeInt(Constants.PUSH_NEW_DATA_INDICATOR)
           dos.writeInt(total)
 
@@ -86,7 +86,7 @@ worker : Worker
           queue.clear()
 
           var ind = IOHelper.readInt(dis)  // Constants.PUSH_DONE_INDICATOR
-          println("push done: " + server.address)
+          //println("push done: " + server.address)
         }
         idle = true
       }

@@ -82,7 +82,7 @@ worker : Worker
           t1.join()
           t2.join()
 
-          Utils.debug("fetch done from " + server.address)
+          //Utils.debug("fetch done from " + server.address)
         }
         //println("queue is empty now " + server.address)
         idle = true

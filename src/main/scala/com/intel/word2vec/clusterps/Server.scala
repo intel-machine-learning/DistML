@@ -5,13 +5,14 @@ import java.net.{SocketException, SocketTimeoutException, Socket, ServerSocket}
 import scala.collection.mutable
 import java.io.{DataOutputStream, DataInputStream}
 import scala.util.Random
-import com.intel.word2vec.common.{IOHelper, FloatOps}
+import com.intel.word2vec.common.{Utils, IOHelper, FloatOps}
 
 /**
  * Created by He Yunlong on 7/12/14.
  */
 class Server(
 driverAddress : String,
+paramServerNetworkPrefix :String,
 vocabSize : Int
 ) {
 
@@ -44,6 +45,7 @@ vocabSize : Int
     dos = new DataOutputStream(socket.getOutputStream())
 
     dos.writeInt(Constants.NODE_TYPE_PARAM_SERVER)
+    dos.writeUTF(Utils.getLocalIP(paramServerNetworkPrefix))
     dos.writeInt(pushServicePort)
     dos.writeInt(fetchServicePort)
 
@@ -60,14 +62,18 @@ vocabSize : Int
       partition(i) = d
       //wordTree.getWord(i).data = d
     }
-    println("init done ")
+    val rt = Runtime.getRuntime();
+    val usedMemory = rt.totalMemory() - rt.freeMemory();
+    println("init done, useMemory=" + usedMemory)
 
     dos.writeInt(1)
     println("param server ready, serverIndex: " + serverIndex)
   }
 
   def start() {
-    println("starting parameter server")
+    val rt = Runtime.getRuntime();
+    val usedMemory = rt.totalMemory() - rt.freeMemory();
+    println("starting parameter server" + ", useMemory=" + usedMemory)
 
     var p = new PushService()
     var f = new FetchService()

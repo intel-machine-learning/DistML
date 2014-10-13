@@ -12,6 +12,11 @@ import java.util.Enumeration;
  */
 public class Utils {
     public static String getLocalIP() throws SocketException {
+        return getLocalIP("192");
+    }
+
+    public static String getLocalIP(String networkPrefix) throws SocketException {
+        System.out.println("get local ip with prefix: " + networkPrefix);
         String ipAddr = "--";
 
         Enumeration allNetInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -26,7 +31,7 @@ public class Utils {
                 ip = (InetAddress) addresses.nextElement();
                 if (ip != null && ip instanceof Inet4Address)
                 {
-                    if (ip.getHostAddress().startsWith("192")) {
+                    if (ip.getHostAddress().startsWith(networkPrefix)) {
                         ipAddr = ip.getHostAddress();
                         System.out.println("IP = " + ipAddr);
                     }

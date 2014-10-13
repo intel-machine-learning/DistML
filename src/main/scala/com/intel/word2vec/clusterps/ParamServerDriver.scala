@@ -151,13 +151,13 @@ object ParamServerDriver {
       dos.write(1)
 
       var wordIndex = IOHelper.readInt(dis)
-      var dataBytes = new Array[Byte](Constants.MODEL_PARAM_SIZE)
+      var dataBytes = new Array[Byte](Constants.MODEL_DIMENSION * 4)
       while (wordIndex >= 0) {
           val w = wordTree.getWord(wordIndex)
           val str = w.name + " "
           out.write(str.getBytes("UTF-8"))
 
-          while (dis.available() < Constants.MODEL_PARAM_SIZE) {
+          while (dis.available() < Constants.MODEL_DIMENSION * 4) {
             Thread.sleep(10)
           }
 
@@ -170,12 +170,13 @@ object ParamServerDriver {
     }
   }
 
-  class ParamServerStarter(spark : SparkContext, s : Socket) extends Thread {
+  class ParamServerStarter(spark : SparkContext, s : Socket, paramServerNetworkPrefix : String) extends Thread {
     override def run() {
       var dis = new DataInputStream(s.getInputStream)
       totalWords = dis.readLong()
 
-      println("reading model created by training servers")
+      println("reading model created by training workers")
+      println("reading model created by training workers")
       var trainingDriverIS = new ObjectInputStream(s.getInputStream)
       trainingDriverOS = new DataOutputStream(s.getOutputStream)
       wordTree = trainingDriverIS.readObject().asInstanceOf[WordTree]
@@ -187,9 +188,9 @@ object ParamServerDriver {
       }
       println("model initialized: " + wordTree.vocabSize)
 
-      var da = new Array[Int](Constants.PARAM_SERVER_COUNT)
+      var da = new Array[String](Constants.PARAM_SERVER_COUNT)
       for (i <- 0 to Constants.PARAM_SERVER_COUNT - 1)
-        da(i) = i
+        da(i) = paramServerNetworkPrefix
 
       val data = spark.parallelize(da, Constants.PARAM_SERVER_COUNT)
       val dummy = data.map(paramServerTask(Utils.getLocalIP, wordTree.vocabSize)).collect()
@@ -197,18 +198,18 @@ object ParamServerDriver {
     }
   }
 
-  def paramServerTask(driverAddr : String, vocabSize : Int)(value: Int) : Int = {
+  def paramServerTask(driverAddr : String, vocabSize : Int)(value: String) : Int = {
 
     println("starting server task")
-    val s = new Server(driverAddr, vocabSize)
+    val s = new Server(driverAddr, value, vocabSize)
 
     s.start()
 
     println("stopping server task")
-    value
+    1
   }
 
-  def start(spark : SparkContext) {
+  def start(spark : SparkContext, paramServerNetworkPrefix : String) {
     ss = new ServerSocket(Constants.MONITOR_PORT)
     ss.setSoTimeout(10000)
 
@@ -222,7 +223,7 @@ object ParamServerDriver {
         var t = IOHelper.readInt(dis)
         if (t == Constants.NODE_TYPE_DRIVER) {
           println("training workers are ready, initialize parameter model....")
-          serverStarter = new ParamServerStarter(spark, s)
+          serverStarter = new ParamServerStarter(spark, s, paramServerNetworkPrefix)
           serverStarter.start()
         }
         else if (t == Constants.NODE_TYPE_WORKER) {
@@ -234,7 +235,8 @@ object ParamServerDriver {
           val dos = new DataOutputStream(s.getOutputStream())
 
           val server = servers(count)
-          server.address = s.getInetAddress.getHostName
+          //server.address = s.getInetAddress.getHostName
+          server.address = IOHelper.readString(dis)
           server.pushServicePort = IOHelper.readInt(dis)
           server.fetchServicePort = IOHelper.readInt(dis)
           println("parameter server " + count + " from " + server.address +
@@ -273,6 +275,9 @@ object ParamServerDriver {
     var sparkMem = args(2)
     var appJars = args(3)
     outputFolder = args(4)
+    var paramServerNetworkPrefix = args(5)
+
+    IOHelper.deleteHDFS(outputFolder + "/result")
 
     val conf = new SparkConf()
       .setMaster(sparkMaster)
@@ -280,12 +285,12 @@ object ParamServerDriver {
       .set("spark.executor.memory", sparkMem)
       .set("spark.home", sparkHome)
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-      .set("spark.driver.port", "34225")
+      //.set("spark.driver.port", "34225")
       .set("spark.local.dir", "/mnt/disk1/spark")
       .setJars(Seq(appJars))
     val spark = new SparkContext(conf)
 
-    start(spark)
+    start(spark, paramServerNetworkPrefix)
 
     spark.stop()
   }

@@ -56,6 +56,7 @@ socket : Socket
     var data : WordNodeData = null
 
     var dataBytes = new Array[Byte](Constants.MODEL_DIMENSION * 4)
+    var deltas = new TempNodeData()
 
     var count = IOHelper.readInt(dis)
     //println("delta to be received: " + count)
@@ -66,28 +67,12 @@ socket : Socket
       data = server.getData(index)
 
       dis.readFully(dataBytes)
-      for (i <- 0 to Constants.MODEL_DIMENSION -1) {
-        val delta = FloatOps.getFloatFromBytes(dataBytes, i * 4)
-        data.syn0(i) += delta
-        data.delta0(i) += delta * delta
-        if (data.delta0(i) > 1.0) {
-          data.alpha0(i) = Constants.initialAlpha / Math.sqrt(data.delta0(i)).toFloat
-          if (data.alpha0(i) <= Constants.alphaThreshold)
-            data.alpha0(i) = Constants.alphaThreshold
-        }
-      }
+      deltas.deserialize(dataBytes)
+      data.mergeDelta0((deltas))
 
       dis.readFully(dataBytes)
-      for (i <- 0 to Constants.MODEL_DIMENSION -1) {
-        val delta = FloatOps.getFloatFromBytes(dataBytes, i * 4)
-        data.syn1(i) += delta
-        data.delta1(i) += delta * delta
-        if (data.delta1(i) > 1.0) {
-          data.alpha1(i) = Constants.initialAlpha / Math.sqrt(data.delta1(i)).toFloat
-          if (data.alpha1(i) <= Constants.alphaThreshold)
-            data.alpha1(i) = Constants.alphaThreshold
-        }
-      }
+      deltas.deserialize(dataBytes)
+      data.mergeDelta1((deltas))
 
       if (Constants.DEBUG_PUSH && (index == 1000)) {
         println("delta merged: index=" + index + ", syn=" + data.syn0(0) + ", delta=" + data.delta0(0)

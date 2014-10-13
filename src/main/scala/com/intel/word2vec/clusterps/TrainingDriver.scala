@@ -51,17 +51,17 @@ object TrainingDriver {
 
     var r = new Random
 
-    var neuronArray = new Array[WordNode](vocabSize * 2)
+    var neuronArray = new Array[HuffmanNode](vocabSize * 2)
 
     for (a <- 0 to vocabSize - 1) {
-      neuronArray(a) = new WordNode
+      neuronArray(a) = new HuffmanNode
       neuronArray(a).name = alphabet(a)._1
       neuronArray(a).index = a
       neuronArray(a).frequency = alphabet(a)._2
     }
 
     for (a <- vocabSize to neuronArray.length - 1) {
-      neuronArray(a) = new WordNode
+      neuronArray(a) = new HuffmanNode
       neuronArray(a).index = a
       neuronArray(a).frequency = 1000000000
     }
@@ -134,7 +134,8 @@ object TrainingDriver {
 
     var t = new Array[WordNode](vocabSize)
     for (i <- 0 to t.length -1) {
-      t(i) = neuronArray(i)
+      t(i) = new WordNode()
+      t(i).initFrom(neuronArray(i))
       for (j <- 0 to t(i).codeLen -1) {
         if (t(i).point(j) >= vocabSize) {
           println("ERROR: index=" + i + ", point=" + t(i).point(j) + ", vocabSize=" + vocabSize)
@@ -151,10 +152,13 @@ object TrainingDriver {
                          wordMapBroadcast : Broadcast[mutable.HashMap[String, Int]],
                          wordTreeBroadcast : Broadcast[WordTree],
                          totalWords : Long,
-                         outputFolder : String)
+                         batchLines : Int,
+                         trainThreadCount : Int)
                        (index : Int, lines: Iterator[String]) : Iterator[Int] = {
 
-    println("partition training index: " + index)
+    val rt = Runtime.getRuntime();
+    val usedMemory = rt.totalMemory() - rt.freeMemory();
+    println("partition training index: " + index + ", useMemory=" + usedMemory)
 
     //var helper = new HDFSHelper(outputFolder)
     var dummy = new Array[Int](1)
@@ -164,7 +168,7 @@ object TrainingDriver {
     val wordTree = wordTreeBroadcast.value
 
     val w = new Worker(index, driver, servers, globalExpTable, wordTree, wordMap, totalWords, lines,
-      Constants.initialAlpha, outputFolder)
+      Constants.initialAlpha, batchLines, trainThreadCount)
     w.init()
     w.workNow()
 
@@ -184,12 +188,12 @@ object TrainingDriver {
     (w._2, w._1)
   }
 
-  def freqWordsOnly(W : (Long, String)) : Boolean = {
-    W._1 > Constants.MIN_WORD_FREQ
+  def freqWordsOnly(minFreq : Int)(W : (Long, String)) : Boolean = {
+    W._1 > minFreq
   }
 
 
-  def word2vec(args: Array[String]) {
+  def main(args: Array[String]) {
 
     if (args.length == 0) {
       System.err.println("Usage: SparkPi <master> [<slices>]")
@@ -206,26 +210,41 @@ object TrainingDriver {
     var sparkMem = args(2)
     var appJars = args(3)
     val trainingFile = args(4)
-    val outputFolder = args(5)
+    val trainingWords = args(5).equals("Yes")
+    val outputFolder = args(6)
+
+//    Constants.MIN_WORD_FREQ = Integer.parseInt(args(7))
+//    Constants.MODEL_DIMENSION = Integer.parseInt(args(8))
+//    Constants.BATCH_LINES = Integer.parseInt(args(9))
+    var minFreq = Integer.parseInt(args(7))
+    var batchLines = Integer.parseInt(args(8))
+    val trainThreadCount = Integer.parseInt(args(9))
 
     val conf = new SparkConf()
       .setMaster(sparkMaster)
       .setAppName("Word2Vec")
-      .set("spark.executor.memory", "10g")
+      .set("spark.executor.memory", sparkMem)
       .set("spark.home", sparkHome)
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-      .set("spark.driver.port", "44225")
-      .set("spark.local.dir", "/mnt/disk1/spark")
+    //  .set("spark.driver.port", "44225")
+     // .set("spark.local.dir", "/mnt/disk1/spark")
       .setJars(Seq("target/scala-2.10/word2vec_2.10-1.0.jar"))
     val spark = new SparkContext(conf)
 
-    val lines = spark.textFile(trainingFile).map(normalizeString).persist(StorageLevel.MEMORY_AND_DISK)
-    //val lines = spark.textFile(trainingFile).persist(StorageLevel.MEMORY_AND_DISK)
+    Thread.sleep(3000)  // waiting workers to register
+
+    val rawLines = spark.textFile(trainingFile)
+    var lines:RDD[String] = null
+    if (trainingWords)
+      lines = rawLines.map(normalizeString).persist(StorageLevel.MEMORY_AND_DISK)
+    else
+      lines = rawLines.persist(StorageLevel.MEMORY_AND_DISK)
+
     val words = lines.flatMap(line => line.split(" ")).filter( s => s.length > 0).map(word => (word, 1L))
     val lineCount = lines.count()
     println("lineCount=" + lineCount)
 
-    val countedWords = words.reduceByKey(_ + _).map(exchange).filter(freqWordsOnly).sortByKey(false).map(exchange).collect
+    val countedWords = words.reduceByKey(_ + _).map(exchange).filter(freqWordsOnly(minFreq)).sortByKey(false).map(exchange).collect
     println("countedWords=" + countedWords)
 
     var wordMap = new mutable.HashMap[String, Int]
@@ -267,16 +286,11 @@ object TrainingDriver {
     var startTime = System.currentTimeMillis()
 
     println("lineCount=" + lineCount)
-    IOHelper.deleteHDFS(outputFolder + "/result")
     var dummy = lines.mapPartitionsWithIndex(
           partitionTraining(driver, psServers, expTableBroadcast, wordMapBroadcast, wordTreeBroadcast,
-            totalWords, outputFolder))
+            totalWords, batchLines, trainThreadCount))
     dummy.saveAsTextFile(outputFolder + "/result")
 
     spark.stop()
-  }
-
-  def main(args: Array[String]) {
-    word2vec(args)
   }
 }

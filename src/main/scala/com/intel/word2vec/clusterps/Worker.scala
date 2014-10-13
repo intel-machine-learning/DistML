@@ -42,14 +42,15 @@ wordMap : HashMap[String, Int],
 totalWords : Long,
 lines : Iterator[String],
 startingAlpha : Float,
-outputFolder : String
+batchLines : Int,
+trainThreadCount : Int = 1
 ) {
 
 //  Utils.debug("worker created: " + this + ", " + wordTree)
 
   val wordTree = w.clone()
 
-  val FETCH_TRAIN_BULK_LINES = 200
+//  val FETCH_TRAIN_BULK_LINES = 1000
 
   var currentPool = new W2VWorkerPool("pool A")
   var bufferedPool = new W2VWorkerPool("pool B")
@@ -58,12 +59,16 @@ outputFolder : String
   var fetchers = new ListBuffer[Fetcher]
   var fetchRunnable = new FetchRunnable()
 
-  var trainRunnable = new TrainRunnable()
+  var trainingRunnables = new Array[TrainRunnable](trainThreadCount)
+  for (i <- 0 to trainThreadCount-1) {
+    trainingRunnables(i) = new TrainRunnable(i)
+  }
+  var trainingThreads = new Array[Thread](trainThreadCount)
 
   var pushers = new ListBuffer[Pusher]
   var pushRunnable = new PushRunnable()
 
-  var fetchedLines = 0L
+  var fetchedLines = 0
   var trainedWords = 0L
   var reporter = new Reporter()
 
@@ -120,6 +125,9 @@ outputFolder : String
   }
 
   def exchangePool() {
+    //val rt = Runtime.getRuntime();
+    //var usedMemory = rt.totalMemory() - rt.freeMemory();
+    //println("exchangePool started: " + this + ", useMemory=" + usedMemory)
     println("exchangePool started: " + this)
 
     currentPool.clear()
@@ -129,28 +137,34 @@ outputFolder : String
     currentPool = t
 
     currentPool.apply()
+    //usedMemory = rt.totalMemory() - rt.freeMemory();
+    //println("exchangePool done: " + this + ", useMemory=" + usedMemory)
     println("exchangePool done: " + this)
   }
 
   def trainAndFetch() {
     trainedWords = 0L
 
+    println("train and fetch started: ")
     var t1 = new Thread(fetchRunnable)
-    var t2 = new Thread(trainRunnable)
-    var t3 = new Thread(pushRunnable)
-    println("train and fetch started: " + this + ", " + t1 + ", " + t2 + ", " + t3)
+    var t2 = new Thread(pushRunnable)
     t1.start()
     t2.start()
-    t3.start()
+    for (i <- 0 to trainThreadCount-1) {
+      trainingThreads(i) = new Thread(trainingRunnables(i))
+      trainingThreads(i).start()
+    }
 
     t1.join()
     t2.join()
-    t3.join()
+    for (i <- 0 to trainThreadCount-1) {
+      trainingThreads(i).join()
+    }
     reporter.report(trainedWords)
-    println("train and fetch done: " + this + ", " + t1 + ", " + t2 + ", " + t3)
+    println("train and fetch done")
   }
 
-  class TrainRunnable() extends Runnable {
+  class TrainRunnable(trainerIndex : Int) extends Runnable {
 
     final val EXP_TABLE_SIZE: Int = 1000
     final val MAX_EXP: Int = 6
@@ -164,8 +178,9 @@ outputFolder : String
 
     val partitionIndex = index
 
-    var neu1e = new Array[Float](Constants.MODEL_DIMENSION)
-    var neu1eBuf: ByteBuffer = null
+    var neu1e = new TempNodeData()
+    //var neu1e = new Array[Float](Constants.MODEL_DIMENSION)
+    //var neu1eBuf: ByteBuffer = null
 
     def skipGram(index: Int,
                  sentence: MutableList[WordNode],
@@ -182,9 +197,7 @@ outputFolder : String
 
           val lastWord = sentence(c).data.asInstanceOf[W2VWorkerNodeData]
 
-          for (c <- 0 to vectorSize-1) {
-            neu1e(c) = 0.0f
-          }
+          neu1e.clear()
 
           for (d <- 0 to word.codeLen-1) {
             val out = wordTree.getWord(word.point(d)).data.asInstanceOf[W2VWorkerNodeData]
@@ -193,34 +206,19 @@ outputFolder : String
             if (out == null)
               Utils.debug("" + Worker.this + ". data fail: " + word.point(d))
 
-            var f: Float = 0
-
-            for (j <- 0 to vectorSize-1) {
-              f += lastWord.syn0(j) * out.syn1(j)
-            }
+            var f: Float = lastWord.f(out)
 
             if (f > -MAX_EXP && f < MAX_EXP) {
               f = (f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2)
               f = expTable(f.asInstanceOf[Int])
-              var g = 1.0f - word.code(d) - f
+              val g = 1.0f - word.code(d) - f
 
-              for (c <- 0 to vectorSize-1) {
-                neu1e(c) += g * out.syn1(c)
-              }
-
-              for (c <- 0 to vectorSize-1) {
-                tmp = g * lastWord.syn0(c) * out.alpha1(c)
-                out.syn1(c) += tmp
-                out.delta1(c) += tmp
-              }
+              neu1e.accum(out, g)
+              out.calculateDelta1(lastWord, g)
             }
           }
 
-          for (j <- 0 to vectorSize-1) {
-            tmp = neu1e(j) * lastWord.alpha0(j)
-            lastWord.syn0(j) += tmp
-            lastWord.delta0(j) += tmp
-          }
+          lastWord.calculateDelta0(neu1e)
         }
       }
     }
@@ -230,9 +228,13 @@ outputFolder : String
       var startTime= System.currentTimeMillis()
 
 //      currentPool.deltaList.clear()
-      println("train thread started")
+      //val rt = Runtime.getRuntime();
+      //var usedMemory = rt.totalMemory() - rt.freeMemory();
+      //println("train thread started, useMemory=" + usedMemory)
+      println("train thread started: trainerIndex=" + trainerIndex)
 
-      for (line <- currentPool.lines) {
+      var lines = currentPool.lines(trainerIndex)
+      for (line <- lines) {
         //println("train with line: " + line)
         val sentence = new mutable.MutableList[WordNode]
         var tokens = line.split(" ").filter( s => s.length > 0)
@@ -260,9 +262,11 @@ outputFolder : String
         }
       }
 
+      //usedMemory = rt.totalMemory() - rt.freeMemory()
       val cost = System.currentTimeMillis() - startTime
-      println("train thread done, trained lines: " + currentPool.lines.size + ", trained words: " + trainedWords
+      println("train thread done, trainerIndex: " + trainerIndex + " trained lines: " + lines.size + ", trained words: " + trainedWords
               + ", time: " + cost/1000.0f)
+//      + ", time: " + cost/1000.0f + ", useMemory=" + usedMemory)
     }
 /*
     def addDletaToPusher(d : DeltaData) {
@@ -283,13 +287,17 @@ outputFolder : String
 
   class FetchRunnable extends Runnable {
     override def run()  {
-      //println("fetch thread started")
+      //val rt = Runtime.getRuntime()
+      //var usedMemory = rt.totalMemory() - rt.freeMemory()
+      //println("fetch thread started, useMemory=" + usedMemory)
+      println("fetch thread started: batch lines=" + batchLines)
       var startTime= System.currentTimeMillis()
 
-      fetchedLines = 0L
-      while ((fetchedLines < FETCH_TRAIN_BULK_LINES) && lines.hasNext) {
+      fetchedLines = 0
+      while ((fetchedLines < batchLines) && lines.hasNext) {
         val line = lines.next()
-        bufferedPool.lines += line
+        bufferedPool.lines(fetchedLines%trainThreadCount) += line
+        fetchedLines += 1
 
         val sentence = new MutableList[Int]
         var tokens = line.split(" ").filter( s => s.length > 0)
@@ -308,7 +316,6 @@ outputFolder : String
             }
           }
         }
-        fetchedLines += 1
       }
 
       //println("starting fetchers to fetch data, total words: " + wordCount)
@@ -324,9 +331,12 @@ outputFolder : String
         }
         //println("fetcher is not idle now: " + f.server.address + ", " + f.idle)
       }
+
+      //usedMemory = rt.totalMemory() - rt.freeMemory()
       val cost = System.currentTimeMillis() - startTime
       println("fetch thread done, fetched lines: " + fetchedLines + ", fetched words: " + wordCount
         + ", time: " + cost/1000.0f)
+      //+ ", time: " + cost/1000.0f + ", useMemory=" + usedMemory)
 
 
     }
@@ -334,7 +344,10 @@ outputFolder : String
 
   class PushRunnable extends Runnable {
     override def run()  {
-      //println("push thread started")
+      //val rt = Runtime.getRuntime();
+      //var usedMemory = rt.totalMemory() - rt.freeMemory();
+      //println("push thread started, useMemory=" + usedMemory)
+      println("push thread started")
       var startTime= System.currentTimeMillis()
 
       var d = bufferedPool.dataPool
@@ -362,7 +375,9 @@ outputFolder : String
         }
       }
 
+      //usedMemory = rt.totalMemory() - rt.freeMemory();
       val cost = System.currentTimeMillis() - startTime
+      //println("push done, pushed count: " + count + ", time: " + cost/1000.0f + ",  useMemory=" + usedMemory)
       println("push done, pushed count: " + count + ", time: " + cost/1000.0f)
     }
   }
@@ -389,7 +404,10 @@ outputFolder : String
     var firstFreeData : W2VWorkerNodeData = null     // used to indicate from where to append fetched data
     var firstInvalidData : W2VWorkerNodeData = null  // used to indicate stop for delta pushing
 
-    var lines = new ListBuffer[String]
+    var lines = new Array[ListBuffer[String]](trainThreadCount)
+    for (i <- 0 to trainThreadCount-1) {
+      lines(i) = new ListBuffer[String]()
+    }
 
     // we don't use delta list, because it's too long when training
     //var deltaList = new Queue[DeltaData]()
@@ -411,7 +429,9 @@ outputFolder : String
       //println
       firstInvalidData = firstFreeData
       firstFreeData = dataPool
-      lines.clear()
+      for (l <- lines)
+        l.clear()
+      System.gc()
     }
 
     def apply() {

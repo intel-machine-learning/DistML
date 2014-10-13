@@ -36,3 +36,32 @@ dim : Int
     new WordTree(vocabSize, ws, dim)
   }
 }
+
+class SimpleWordTree(
+                val vocabSize : Int,
+                val words : Array[WordNode],
+                dim : Int
+                ) extends Serializable{
+
+
+  def getWord(index : Int) : WordNode = {
+    return words(index)
+  }
+
+  def nodeCount() : Int = {
+    return words.length
+  }
+
+  def bufferingDone() {
+
+  }
+
+  override def clone() :WordTree = {
+    var ws = new Array[WordNode](words.length)
+    for (i <- 0 to words.length - 1) {
+      ws(i) = words(i).clone()
+    }
+
+    new WordTree(vocabSize, ws, dim)
+  }
+}

@@ -35,6 +35,13 @@ dim : Int
     }
   }
 
+  def clear() {
+    for (i <- 0 to Constants.MODEL_DIMENSION - 1) {
+      syn0(i) = 0.0f
+      syn1(i) = 0.0f
+    }
+  }
+
   def clearDelta() {
     for (i <- 0 to Constants.MODEL_DIMENSION - 1) {
       delta0(i) = 0.0f
@@ -42,7 +49,82 @@ dim : Int
     }
   }
 
+  // ============ functions for training and updating =============
+  def f(d : WordNodeData) : Float = {
+    var f = 0.0f
+    for (j <- 0 to Constants.MODEL_DIMENSION-1) {
+      f += syn0(j) * d.syn1(j)
+    }
+    f
+  }
 
+  def calculateDelta0(neu1e : TempNodeData) {
+    var tmp = 0.0f
+    for (j <- 0 to Constants.MODEL_DIMENSION-1) {
+      tmp = neu1e.data(j) * alpha0(j)
+      syn0(j) += tmp
+      delta0(j) += tmp
+    }
+  }
+
+  def calculateDelta1(lastWord : WordNodeData, g : Float) {
+    var tmp = 0.0f
+    for (c <- 0 to Constants.MODEL_DIMENSION-1) {
+      tmp = g * lastWord.syn0(c) * alpha1(c)
+      syn1(c) += tmp
+      delta1(c) += tmp
+    }
+  }
+
+
+  def mergeDelta0(d : TempNodeData) {
+    for (i <- 0 to Constants.MODEL_DIMENSION -1) {
+      val delta = d.data(i)
+      syn0(i) += delta
+      delta0(i) += delta * delta
+      if (delta0(i) > 1.0) {
+        alpha0(i) = Constants.initialAlpha / Math.sqrt(delta0(i)).toFloat
+        if (alpha0(i) <= Constants.alphaThreshold)
+          alpha0(i) = Constants.alphaThreshold
+      }
+    }
+  }
+
+  def mergeDelta1(d : TempNodeData) {
+    for (i <- 0 to Constants.MODEL_DIMENSION -1) {
+      val delta = d.data(i)
+      syn1(i) += delta
+      delta1(i) += delta * delta
+      if (delta1(i) > 1.0) {
+        alpha1(i) = Constants.initialAlpha / Math.sqrt(delta1(i)).toFloat
+        if (alpha1(i) <= Constants.alphaThreshold)
+          alpha1(i) = Constants.alphaThreshold
+      }
+    }
+  }
+}
+
+class TempNodeData (
+) {
+  var data = new Array[Float](Constants.MODEL_DIMENSION)
+
+  def clear() {
+    for (i <- 0 to Constants.MODEL_DIMENSION - 1) {
+      data(i) = 0.0f
+    }
+  }
+
+  def accum(d : W2VWorkerNodeData, g : Float) {
+    for (c <- 0 to Constants.MODEL_DIMENSION-1) {
+      data(c) += g * d.syn1(c)
+    }
+  }
+
+  def deserialize(dataBytes : Array[Byte]) {
+    for (i <- 0 to Constants.MODEL_DIMENSION -1) {
+      data(i) = FloatOps.getFloatFromBytes(dataBytes, i * 4)
+    }
+  }
 }
 
 class W2VWorkerNodeData (
