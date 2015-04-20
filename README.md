@@ -1,4 +1,11 @@
-Word2Vec-on-Spark
+Distributed Machine Learning
 =================
+DistML can support model parallel. DistML is designed with following goals:
+1. Run on Spark, easy to integrate with mllib
+2. Support big models across multiple nodes, the model can be partitioned automatically or manually.
+3. Provide API to write algorithm with big models
+4. Provide samples for popular algorithms which are facing big problems in industry
+5. Support both dense/sparse models/data
 
-“Word2Vec-on-Spark” provides a distributed version (both model representation and training are distributed) of Word2Vec which can run on Spark clusters, this make it possible to handle huge dataset and huge words model
+
+
