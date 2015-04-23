@@ -16,17 +16,17 @@ Introduction
 Data Parallel and Model Parallel
 -----------------
   Most modern data analytics platform, such as VW, mahout on Hadoop, mllib on Spark, support data parallel to handle huge dataset. Generally they use a worker cluster and a master (¡°driver¡± in Spark), when start training, master sends the model to all works (by ¡°broadcast¡± in Spark), then each worker fits the model with its own part of dataset. After all works finish training, master will aggregate all updated models from workers. If several iterations needed, master sends out the aggregated model and start new iteration of training.
-![image](https://github.com/intel-machine-learning/DistML/doc/data_parallel.png")
+![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/data_parallel.png")
 
   However in industry problems, we often need to handle very big models. For example, logistic regress may need 1~10 billion features. Hosting these features in a single server (master) or one worker is not realistic. With model parallel, these parameters are stored in a server cluster, and workers are also grouped to host necessary parameters in each group, the group size can be one or more. Like data parallel, each worker group updates the parameters with local dataset, then the updates are pushed to server and merged to existed parameters.
-![image](https://github.com/intel-machine-learning/DistML/doc/model_parallel.png")
+![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/model_parallel.png")
 
   Notes: parameter updates from worker to server may occur asynchronously, or only occur at the end of each iteration, this depends on platform/algorithm implementation. Mllib on spark chooses the last solution because of RDD limitions.
   
 Distributed Machine Platform
 -----------------
   The architect of Distributed Machine Learning Platform is below:
-![image](https://github.com/intel-machine-learning/DistML/doc/architect.png")
+![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/architect.png")
 
 
 DistML Api for Algorithms
@@ -59,7 +59,7 @@ Model
 NeuralNetwork Models
 -----------------
   Neural networks is very common is machine learning problems, one disadvantage of mllib is that it doesn¡¯t support neural network even in latest versions. As a supplement, DistML provide some API to make it easy, even for very big network models(though very rare).
-![image](https://github.com/intel-machine-learning/DistML/doc/neural_network.png")
+![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/neural_network.png")
 
   NeuralNetwork is represented by several layers, and there can be one or more edges between two layers. In training, the network is computed layer-by-layer(forward) and parameters are adjusted  accordingly(backward).
 
