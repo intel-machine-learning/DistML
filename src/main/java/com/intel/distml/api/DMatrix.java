@@ -8,12 +8,17 @@ import java.util.List;
 
 public class DMatrix extends Matrix {
 
-	public static final int TYPE_SAMPLE = 0;
-	public static final int TYPE_PARAM = 1;
-	public static final int TYPE_DATA = 2;
-	public static final int TYPE_ERROR = 3;
-	public static final int TYPE_UPDATE = 4;
-	public static final int TYPE_DELTA = 5;
+//	public static final int TYPE_SAMPLE = 0;
+//	public static final int TYPE_PARAM = 1;
+//	public static final int TYPE_DATA = 2;
+//	public static final int TYPE_ERROR = 3;
+//	public static final int TYPE_UPDATE = 4;
+//	public static final int TYPE_DELTA = 5;
+
+	public static final int FLAG_PARAM 	= 1;
+	public static final int FLAG_UPDATE	= 2;
+	public static final int FLAG_ON_SERVER = 4;
+	public static final int FLAG_ON_WORKER = 8;
 
 	public static final int PARTITION_STRATEGY_LINEAR = 0;
 	public static final int PARTITION_STRATEGY_HASH = 1;
@@ -23,14 +28,22 @@ public class DMatrix extends Matrix {
 
 	public Matrix localCache;
 
-	public int type;
+	public int flags;
 	protected KeyRange rowKeys;
 
-	public DMatrix(int type, int rows) {
-		this.type = type;
+	public DMatrix(int rows) {
+		this(FLAG_ON_WORKER, rows);
+	}
+
+	public DMatrix(int flags, int rows) {
+		this.flags = flags;
 		this.partitionStrategy = PARTITION_STRATEGY_LINEAR;
 
 		rowKeys = new KeyRange(0, rows-1);
+	}
+
+	public boolean hasFlag(int flag) {
+		return (flags & flag) > 0;
 	}
 
 	public KeyCollection getRowKeys() {

@@ -65,31 +65,7 @@ object TrainingHelper  {
 
   def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingConf, modelWriter : ModelWriter): Unit = {
 
-    model.partitionParams(config.psCount);
-
-    val params = new java.util.HashMap[String, Matrix]()
-    for (iter <- 0 to config.iteration - 1) {
-      params.clear()
-      val it = model.dataMap.entrySet().iterator()
-      while (it.hasNext) {
-        val entry = it.next()
-        val matrixName = entry.getKey
-        val matrix = entry.getValue
-
-        if ((matrix.`type` == DMatrix.TYPE_PARAM) && (matrix.localCache != null)) {
-          params.put(matrixName, matrix.localCache)
-        }
-      }
-      model.clearAllCache()
-
-      systemLog("start new iteration: " + iter)
-
-      startIteration(spark, model, params, samples, config, modelWriter)
-    }
-
-  }
-
-  def startIteration[T:ClassTag](spark : SparkContext, model : Model, params : util.HashMap[String, Matrix], samples: RDD[T], config : TrainingConf, modelWriter : ModelWriter) {
+    model.autoPartition(config.psCount);
 
     if (config.totalSampleCount <= 0) {
       config.totalSampleCount = samples.count()
@@ -102,6 +78,37 @@ object TrainingHelper  {
         config.progressStepSize = 1;
       }
     }
+
+    val tmp = samples.repartition(config.groupSize * config.groupCount)
+
+    val data2 = samples.take(config.psCount)
+    val rdd2 : RDD[T] = spark.parallelize(data2, config.psCount)
+    val newSamples = tmp.union(rdd2)
+    systemLog("new sample partitions: " + newSamples.partitions.length)
+
+    val params = new java.util.HashMap[String, Matrix]()
+    for (iter <- 0 to config.iteration - 1) {
+      params.clear()
+      val it = model.dataMap.entrySet().iterator()
+      while (it.hasNext) {
+        val entry = it.next()
+        val matrixName = entry.getKey
+        val matrix = entry.getValue
+
+        if ((matrix.hasFlag(DMatrix.FLAG_PARAM)) && (matrix.localCache != null)) {
+          params.put(matrixName, matrix.localCache)
+        }
+      }
+      model.clearAllCache()
+
+      systemLog("start new iteration: " + iter)
+
+      startIteration(spark, model, params, newSamples, config, modelWriter)
+    }
+
+  }
+
+  def startIteration[T:ClassTag](spark : SparkContext, model : Model, params : util.HashMap[String, Matrix], newSamples: RDD[T], config : TrainingConf, modelWriter : ModelWriter) {
 
     // Actor system configuration
     val MONITOR_ACTOR_SYSTEM_NAME = "monitor-system"
@@ -118,13 +125,6 @@ object TrainingHelper  {
     val address = monitorActorSystem.asInstanceOf[ExtendedActorSystem].provider.getDefaultAddress
     val monitorActorPath = monitorActorRef.path.toSerializationFormatWithAddress(address)
     systemLog("Monitor Actor System Started")
-
-    val tmp = samples.repartition(config.groupSize * config.groupCount)
-
-    val data2 = samples.take(config.psCount)
-    val rdd2 : RDD[T] = spark.parallelize(data2, config.psCount)
-    val newSamples = tmp.union(rdd2)
-    systemLog("new sample partitions: " + newSamples.partitions.length)
 
     newSamples.mapPartitionsWithIndex(startFunction(monitorActorPath, model, config)).collect
 

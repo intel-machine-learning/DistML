@@ -10,6 +10,7 @@ import com.intel.distml.api.Model;
 import akka.actor.UntypedActor;
 import com.intel.distml.transport.DataBusProtocol;
 import com.intel.distml.util.KeyCollection;
+import com.intel.distml.util.KeyList;
 import com.intel.distml.util.Logger;
 import com.intel.distml.util.Matrix;
 
@@ -48,6 +49,9 @@ public class ParameterServerActor extends UntypedActor {
         // Initialize parameters
         for (String matrixName : model.dataMap.keySet()) {
             DMatrix m = model.getMatrix(matrixName);
+            if (!m.hasFlag(DMatrix.FLAG_ON_SERVER)) {
+                continue;
+            }
 
             PartitionInfo info = m.serverPartitions();
             KeyCollection keys = m.getRowKeys();  // if not partitioned or copied
@@ -77,9 +81,12 @@ public class ParameterServerActor extends UntypedActor {
             KeyCollection cols = req.cols;
 
             log("partial data request received: " + req.matrixName + ", " + req.rows + ", " + rows);
+             if (rows instanceof KeyList) {
+                 log("keylist size = " + rows.size());
+             }
             Matrix result = data.subMatrix(rows, cols);
 
-            log("send data: " + result + ", " + result.getRowKeys());
+            log("send data: " + result + ", row size = " + result.getRowKeys().size());
             getSender().tell(new DataBusProtocol.Data(req.matrixName, result), getSelf());
 
         } else if (msg instanceof DataBusProtocol.FetchDataRequest) { // Fetch parameters of one layer

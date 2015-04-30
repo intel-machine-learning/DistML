@@ -37,11 +37,12 @@ public class KeyHash implements KeyCollection {
     }
 */
     public int size() {
-        return (int) ((totalKeyNum /hashQuato) + ((totalKeyNum % hashQuato) / hashIndex));
+        return (int) ((totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0));
     }
 
     @Override
     public boolean contains(long key) {
+        System.out.println("check contains: " + key + ", quato=" + hashQuato + ", index=" + hashIndex + ", total=" + totalKeyNum);
         return (key < totalKeyNum) && (key % hashQuato == hashIndex);
     }
 

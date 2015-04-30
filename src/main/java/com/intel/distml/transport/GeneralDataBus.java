@@ -50,8 +50,10 @@ public class GeneralDataBus {
         else {
             for (int serverIndex = 0; serverIndex < partitionInfo.partitions.size(); ++serverIndex) {
                 Partition partition = partitionInfo.partitions.get(serverIndex);
-                if (!partition.keys.intersect(rowKeys).isEmpty()) {
-                    DataBusProtocol.PartialDataRequest partialDataRequest = new DataBusProtocol.PartialDataRequest(matrixName, rowKeys, colsKeys);
+                KeyCollection keys = partition.keys.intersect(rowKeys);
+                if (!keys.isEmpty()) {
+                    log("partial request: " + keys.size());
+                    DataBusProtocol.PartialDataRequest partialDataRequest = new DataBusProtocol.PartialDataRequest(matrixName, keys, colsKeys);
                     responseFutures.add(Patterns.ask(remotes[serverIndex], partialDataRequest, Constants.DATA_FUTURE_TIMEOUT));
                 }
             }

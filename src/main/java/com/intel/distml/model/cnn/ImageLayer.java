@@ -12,8 +12,8 @@ public class ImageLayer extends Layer {
 
     protected class ImageNodes extends DMatrix {
 
-        public ImageNodes(int type) {
-            super(type, imageNum);
+        public ImageNodes() {
+            super(imageNum);
         }
 
         @Override

@@ -1,14 +1,16 @@
 package com.intel.distml.app.word2vec
 
 import com.intel.distml.api.Model
+import com.intel.distml.api.BigModelWriter
 import com.intel.distml.model.word2vec.Word2VecModel
-import com.intel.distml.util.Matrix1D
+import com.intel.distml.util.GeneralArray
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkContext, SparkConf}
 import com.intel.distml.platform.{TrainingConf, TrainingHelper}
 
+import org.apache.spark.rdd.RDD
 import scala.collection.mutable
 import scala.util.Random
 import java.net._
@@ -47,7 +49,7 @@ object EngWords {
     var sparkMem = args(2)
     var appJars = args(3)
     val trainingFile = "hdfs://dl-s1:9000/data/text/eng_news_256m"
-    val outputFolder = "hdfs://dl-s3:9000/user/yunlong/word2vec"
+    val outputFolder = "hdfs://dl-s1:9000/user/yunlong/word2vec"
     //      val trainingFile = "file:/home/harry/workspace/scaml/novel.txt"
 
     System.setProperty("spark.driver.maxResultSize", "1g");
@@ -70,9 +72,9 @@ object EngWords {
     //else
     //lines = rawLines.persist(StorageLevel.MEMORY_AND_DISK)
 
-    val words = lines.flatMap(line => line.split(" ")).filter(s => s.length > 0).map(word => (word, 1L))
+    val words = lines.flatMap(line => line.split(" ")).filter(s => s.length > 0).map((_, 1L))
     val lineCount = lines.count()
-    println("lineCount=" + lineCount)
+    println("lineCount=" + lineCount + ", wordCound=" + words.count())
 
     val countedWords = words.reduceByKey(_ + _).map(exchange).filter(freqWordsOnly(Word2VecModel.minFreq)).sortByKey(false).map(exchange).collect
     println("========== countedWords=" + countedWords.length + " ==================")
@@ -88,11 +90,10 @@ object EngWords {
     var wordTree = Word2VecModel.createBinaryTree(lineCount.toLong, countedWords)
 
 //    val config = new TrainingConf().psCount(2).groupCount(6).miniBatchSize(1000)
-    val config = new TrainingConf().miniBatchSize(1000)
-
+    val config = new TrainingConf().miniBatchSize(1000).psCount(2).groupCount(12)
     val model = new Word2VecModel(wordTree, wordMap, 200)
 
-    TrainingHelper.startTraining(spark, model, rawLines, config)
+    TrainingHelper.startTraining(spark, model, rawLines, config, new BigModelWriter(10240))
     val w2vApi = Word2VecModel.getWord2VecMap(model)
     val synonyms = w2vApi.findSynonyms("man", 20)
 

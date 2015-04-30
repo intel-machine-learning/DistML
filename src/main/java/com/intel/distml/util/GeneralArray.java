@@ -9,30 +9,36 @@ import java.util.List;
 /**
  * Created by yunlong on 2/13/15.
  */
-public class Matrix1D<T> extends Matrix {
+public class GeneralArray<T> extends Matrix {
 
     public T values[];
 
-    public int dim;
+//    public int dim;
     public KeyCollection rowKeys;
 
-    public Matrix1D() {
+    public GeneralArray() {
     }
 
-    public Matrix1D(T t, int dim) {
-        this.dim = dim;
+    public GeneralArray(T t, int dim) {
+        //this.dim = dim;
         values = (T[]) Array.newInstance(t.getClass(), dim);
         rowKeys = new KeyRange(0, dim-1);
     }
 
-    public Matrix1D(T[] _values) {
+    public GeneralArray(T t, KeyCollection rowKeys) {
+        //this.dim = dim;
+        values = (T[]) Array.newInstance(t.getClass(), rowKeys.size());
+        this.rowKeys = rowKeys;
+    }
+
+    public GeneralArray(T[] _values) {
         this(_values, new KeyRange(0, _values.length-1));
     }
 
-    public Matrix1D(T[] _values, KeyRange rows) {
+    public GeneralArray(T[] _values, KeyRange rows) {
         this.values = _values;
         rowKeys = rows;
-        this.dim = rows.size();
+//        this.dim = rows.size();
     }
 
     public void show() {
@@ -45,10 +51,16 @@ public class Matrix1D<T> extends Matrix {
 
     public T element(int key) {
         if (rowKeys instanceof KeyRange) {
-            return values[key - (int)((KeyRange)rowKeys).firstKey];
+            int index = key - (int)((KeyRange)rowKeys).firstKey;
+            return values[index];
+        }
+        else if (rowKeys instanceof KeyHash) {
+            rowKeys.contains(key);
+            int index = key / ((KeyHash)rowKeys).hashQuato;
+            return values[index];
         }
         else {
-            throw new RuntimeException("Matrix1D only support key range.");
+            throw new RuntimeException("not supported keys.");
         }
     }
 
@@ -65,7 +77,7 @@ public class Matrix1D<T> extends Matrix {
         try {
             Class cls = getClass();
             Constructor cnInt = cls.getConstructor();
-            Matrix1D<T> result = (Matrix1D<T>) cnInt.newInstance();
+            GeneralArray<T> result = (GeneralArray<T>) cnInt.newInstance();
             return result;
         }
         catch (NoSuchMethodException e) {
@@ -93,7 +105,7 @@ public class Matrix1D<T> extends Matrix {
         }
 
         if (rows instanceof KeyList) {
-            HashMapMatrix<T> output = new HashMapMatrix<T>(dim);
+            HashMapMatrix<T> output = new HashMapMatrix<T>();
             Iterator<Long> it = rows.iterator();
             while(it.hasNext()) {
                 long key = it.next();
@@ -119,7 +131,7 @@ public class Matrix1D<T> extends Matrix {
             System.out.println("obj: " + _v.getClass() + ", " + _v[0]);
 
 
-            Matrix1D<T> result = (Matrix1D<T>) createEmptySubMatrix();
+            GeneralArray<T> result = (GeneralArray<T>) createEmptySubMatrix();
             result.values = _v;
             result.rowKeys = _rows;
             return result;
@@ -153,11 +165,11 @@ public class Matrix1D<T> extends Matrix {
 
     @Override
     public boolean mergeMatrix(Matrix _m) {
-        if (!(_m instanceof Matrix1D)) {
+        if (!(_m instanceof GeneralArray)) {
             throw new UnsupportedOperationException("Only support to merge from same class Matrix1D.");
         }
 
-        Matrix1D m = (Matrix1D) _m;
+        GeneralArray m = (GeneralArray) _m;
 
         if (!(rowKeys instanceof KeyRange)) {
             throw new UnsupportedOperationException("Only support to merge with key range.");
@@ -167,57 +179,66 @@ public class Matrix1D<T> extends Matrix {
         }
 
         KeyRange keys1 = (KeyRange) rowKeys;
+        T[] v1 = values;
         KeyRange keys2 = (KeyRange) m.rowKeys;
-        System.out.println("merge: " + keys1 + ", " + keys2);
+        T[] v2 = (T[]) m.values;
+        //System.out.println("merge: " + keys1 + ", " + keys2 + ", " + values[0]);
 
-        if ((keys2.firstKey > keys1.lastKey) && (keys2.lastKey < keys1.firstKey)) {
+        // fail for non-joint keys
+        if ((keys2.firstKey > keys1.lastKey+1) || (keys1.firstKey > keys2.lastKey+1)) {
+            System.out.println("merge fail: not joint ");
             return false;
         }
+
+        // if one range is a child of the other, do nothing
         if ((keys2.firstKey >= keys1.firstKey) && (keys2.lastKey <= keys1.lastKey)) {
+            System.out.println("no merge needed ");
             return true;
         }
 
-        long newFirst = Math.max(keys1.lastKey, keys2.lastKey);
-        long newLast = Math.min(keys1.firstKey, keys2.firstKey);
-        int newSize = (int) (newLast - newFirst);
-        T[] _v = (T[]) Array.newInstance(values[0].getClass(), newSize);
-
-        if (keys2.firstKey > keys1.firstKey) {
+        //System.out.println("mergine... ");
+        // make sure keys1 is in front of keys2
+        if (keys1.firstKey > keys2.firstKey) {
             KeyRange tmp = keys1;
             keys1 = keys2;
             keys2 = tmp;
+
+            T[] tmpData = v1;
+            v1 = v2;
+            v2 = tmpData;
         }
 
-        System.out.println("copy: " + 0 + ", " + m.values.length);
-        System.arraycopy(_v, 0, m.values, 0, m.values.length);
-        if (keys2.lastKey < keys1.lastKey) {
-            System.out.println("copy: " + m.values.length + ", " + (keys2.lastKey - keys1.firstKey + 1) + ", " + (keys1.lastKey - keys2.lastKey));
-            System.arraycopy(_v, m.values.length, values, (int) (keys2.lastKey - keys1.firstKey + 1),
-                    (int) (keys1.lastKey - keys2.lastKey));
-        }
+        long newLast = Math.max(keys1.lastKey, keys2.lastKey);
+        long newFirst = Math.min(keys1.firstKey, keys2.firstKey);
+        int newSize = (int) (newLast - newFirst + 1);
+        T[] _v = (T[]) Array.newInstance(values[0].getClass(), newSize);
+
+        System.arraycopy(v1, 0, _v, 0, v1.length);
+        System.arraycopy(v2, (int) (keys1.lastKey - keys2.firstKey + 1), _v, v1.length, (int) (keys2.lastKey - keys1.lastKey));
 
         values = _v;
         ((KeyRange) rowKeys).firstKey = newFirst;
         ((KeyRange) rowKeys).lastKey = newLast;
+        //System.out.println("merge done: " + newFirst + ", " + newLast + ", " + values[0] + ", " + values[(int)newLast-1]);
 
         return true;
     }
 
-    public void elementwiseAddition(Matrix1D m){
+    public void elementwiseAddition(GeneralArray m){
         if(this.values.length!=m.values.length)return;
         Float[] s=(Float[])this.values;
         Float[] a=(Float[])m.values;
         for(int i=0;i<this.values.length;i++)
             s[i]=s[i]+a[i];
     }
-    public void elementwiseSubtration(Matrix1D m){
+    public void elementwiseSubtration(GeneralArray m){
         if(this.values.length!=m.values.length)return;
         Float[] s=(Float[])this.values;
         Float[] a=(Float[])m.values;
         for(int i=0;i<this.values.length;i++)
             s[i]=s[i]-a[i];
     }
-    public void elementwiseMultipy(Matrix1D m){
+    public void elementwiseMultipy(GeneralArray m){
         if(this.values.length!=m.values.length)return;
         Float[] s=(Float[])this.values;
         Float[] a=(Float[])m.values;
@@ -229,7 +250,7 @@ public class Matrix1D<T> extends Matrix {
         for(int i=0;i<this.values.length;i++)
             t[i]=r-t[i];
     }
-    public void CopyFrom(Matrix1D m){
+    public void CopyFrom(GeneralArray m){
         if(this.values.length!=m.values.length)return;
         Float[] s=(Float[])this.values;
         Float[] a=(Float[])m.values;

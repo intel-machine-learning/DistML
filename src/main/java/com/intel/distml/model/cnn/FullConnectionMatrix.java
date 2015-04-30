@@ -5,7 +5,7 @@ import com.intel.distml.util.*;
 /**
  * Created by yunlong on 2/7/15.
  */
-public class FullConnectionMatrix extends Matrix2D<Float> {
+public class FullConnectionMatrix extends GeneralMatrix<Float> {
 
     public FullConnectionMatrix() {
     }
@@ -33,7 +33,7 @@ public class FullConnectionMatrix extends Matrix2D<Float> {
         }
     }
 
-    public void calculate(ImagesData images, Matrix1D<Float> output) {
+    public void calculate(ImagesData images, GeneralArray<Float> output) {
 
         int imageSize = images.imageWidth * images.imageHeight;
         int cStart = (int) ((KeyRange) colKeys).firstKey/imageSize;

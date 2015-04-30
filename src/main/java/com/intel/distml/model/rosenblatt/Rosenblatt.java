@@ -1,6 +1,7 @@
 package com.intel.distml.model.rosenblatt;
 
 import com.intel.distml.api.DMatrix;
+import com.intel.distml.api.DParam;
 import com.intel.distml.api.databus.DataBus;
 import com.intel.distml.api.Model;
 import com.intel.distml.model.cnn.ConvKernels;
@@ -13,10 +14,10 @@ import com.intel.distml.util.Matrix;
  */
 public class Rosenblatt extends Model {
 
-    private class SensorNodes extends DMatrix {
+    private class SensorNodes extends DParam {
 
-        public SensorNodes(int type) {
-            super(type, dim);
+        public SensorNodes() {
+            super(dim);
         }
 
         @Override
@@ -41,7 +42,7 @@ public class Rosenblatt extends Model {
 
     public Rosenblatt(int dim) {
 
-        registerMatrix(Model.MATRIX_PARAM, new SensorNodes(DMatrix.TYPE_PARAM));
+        registerMatrix(Model.MATRIX_PARAM, new SensorNodes());
     }
 
     public void showResult() {

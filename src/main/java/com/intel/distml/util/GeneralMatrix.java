@@ -9,22 +9,22 @@ import java.util.List;
 /**
  * Created by yunlong on 2/13/15.
  */
-public class Matrix2D<T> extends Matrix {
+public class GeneralMatrix<T> extends Matrix {
 
     public T values[][];
 
     public KeyRange rowKeys;
     public KeyRange colKeys;
 
-    public Matrix2D() {
+    public GeneralMatrix() {
     }
 
-    public Matrix2D(T[][] _values) {
+    public GeneralMatrix(T[][] _values) {
         // assume that
         this(_values, new KeyRange(0, _values.length-1), new KeyRange(0, _values[0].length-1));
     }
 
-    public Matrix2D(T[][] _values, KeyRange rows, KeyRange cols) {
+    public GeneralMatrix(T[][] _values, KeyRange rows, KeyRange cols) {
         this.values = _values;
         rowKeys = rows;
         colKeys = cols;
@@ -62,7 +62,7 @@ public class Matrix2D<T> extends Matrix {
         try {
             Class cls = getClass();
             Constructor cnInt = cls.getConstructor();
-            Matrix2D<T> result = (Matrix2D<T>) cnInt.newInstance();
+            GeneralMatrix<T> result = (GeneralMatrix<T>) cnInt.newInstance();
             return result;
         }
         catch (NoSuchMethodException e) {
@@ -116,7 +116,7 @@ public class Matrix2D<T> extends Matrix {
             i++;
         }
 
-        Matrix2D<T> result = (Matrix2D<T>) createEmptySubMatrix();
+        GeneralMatrix<T> result = (GeneralMatrix<T>) createEmptySubMatrix();
         result.values = _v;
         result.rowKeys = (KeyRange) _rows;
         result.colKeys = (KeyRange) _cols;
@@ -150,11 +150,11 @@ public class Matrix2D<T> extends Matrix {
 
     @Override
     public boolean mergeMatrix(Matrix _m) {
-        if (!(_m instanceof Matrix2D)) {
+        if (!(_m instanceof GeneralMatrix)) {
             throw new UnsupportedOperationException("Only support to merge from same class Matrix1D.");
         }
 
-        Matrix2D m = (Matrix2D) _m;
+        GeneralMatrix m = (GeneralMatrix) _m;
 
         if (!(rowKeys instanceof KeyRange)) {
             throw new UnsupportedOperationException("Only support to merge with key range.");

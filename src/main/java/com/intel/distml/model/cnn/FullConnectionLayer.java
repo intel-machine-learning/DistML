@@ -19,40 +19,34 @@ public class FullConnectionLayer extends Layer {
 
         @Override
         public void initOnServer(int psIndex, KeyCollection keys) {
-
-            if (type == DMatrix.TYPE_PARAM) {
-                System.out.println("creating params: " + inputNum + ", " + keys.size());
-                FullConnectionMatrix data = new FullConnectionMatrix(inputNum, (KeyRange) keys);
-                data.initWithValue(0.00105f);
+            System.out.println("creating params: " + inputNum + ", " + keys.size());
+            FullConnectionMatrix data = new FullConnectionMatrix(inputNum, (KeyRange) keys);
+            data.initWithValue(0.00105f);
 //                data.initRandom();
-                setLocalCache(data);
-            }
+            setLocalCache(data);
         }
 
         @Override
         public void initOnWorker(int workerIndex, KeyCollection keys) {
+            System.out.println("creating update: " + inputNum + ", " + keys.size());
+            FullConnectionMatrix data = new FullConnectionMatrix(inputNum, (KeyRange) keys);
+            data.initWithValue(0.0f);
 
-            if (type == DMatrix.TYPE_UPDATE) {
-                System.out.println("creating update: " + inputNum + ", " + keys.size());
-                FullConnectionMatrix data = new FullConnectionMatrix(inputNum, (KeyRange) keys);
-                data.initWithValue(0.0f);
-
-                setLocalCache(data);
-            }
+            setLocalCache(data);
         }
     }
 
     private class Results extends DMatrix {
 
-        public Results(int type) {
-            super(type, outputNum);
+        public Results() {
+            super(outputNum);
         }
 
         @Override
         public void initOnWorker(int workerIndex, KeyCollection keys) {
 
             System.out.println("creating data on worker: " + inputNum + ", " + keys.size());
-            Matrix1D<Float>  data = new Matrix1D<Float>(new Float[outputNum]);
+            GeneralArray<Float> data = new GeneralArray<Float>(new Float[outputNum]);
 
             setLocalCache(data);
         }
@@ -73,11 +67,11 @@ public class FullConnectionLayer extends Layer {
         FullConnectionEdge edge = new FullConnectionEdge(images, this);
         addEdge(edge);
 
-        registerMatrix(Model.MATRIX_PARAM, new FullConnectionNodes(DMatrix.TYPE_PARAM));
-        registerMatrix(Model.MATRIX_UPDATE, new FullConnectionNodes(DMatrix.TYPE_UPDATE));
-        registerMatrix(Model.MATRIX_DATA, new Results(DMatrix.TYPE_DATA));
-        registerMatrix(Model.MATRIX_ERROR, new Results(DMatrix.TYPE_ERROR));
-        registerMatrix(Model.MATRIX_DELTA, new Results(DMatrix.TYPE_DELTA));
+        registerMatrix(Model.MATRIX_PARAM, new FullConnectionNodes(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER));
+        registerMatrix(Model.MATRIX_UPDATE, new FullConnectionNodes(DMatrix.FLAG_ON_WORKER));
+        registerMatrix(Model.MATRIX_DATA, new Results());
+        registerMatrix(Model.MATRIX_ERROR, new Results());
+        registerMatrix(Model.MATRIX_DELTA, new Results());
     }
 
 

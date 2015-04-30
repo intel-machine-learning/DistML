@@ -20,7 +20,7 @@ public class SparseLRModel extends Model {
 
         @Override
         public void initOnServer(int psIndex, KeyCollection keys) {
-            setLocalCache(new SparseWeights(dim));
+            setLocalCache(new SparseWeights());
         }
 
         @Override
@@ -53,11 +53,11 @@ public class SparseLRModel extends Model {
             array[i] = (LRSample) samples.get(i);
         }
 
-        Matrix1D<LRSample> matrix =  new Matrix1D<LRSample>(array);
+        GeneralArray<LRSample> matrix =  new GeneralArray<LRSample>(array);
         return matrix;
     }
 
-    private void prefetch(Matrix1D<LRSample> samples, DataBus dataBus) {
+    private void prefetch(GeneralArray<LRSample> samples, DataBus dataBus) {
 
         KeyList keyList = new KeyList();
 
@@ -76,7 +76,7 @@ public class SparseLRModel extends Model {
 //        double Maxiter=10000.0;
 //        for (double iter = 0.0;iter< Maxiter;iter+=1.0){
 //
-            Matrix1D<LRSample> samples = (Matrix1D<LRSample>) s;
+            GeneralArray<LRSample> samples = (GeneralArray<LRSample>) s;
 //            prefetch(samples, dataBus);
 
         DMatrix params = getMatrix(Model.MATRIX_PARAM);
@@ -94,7 +94,7 @@ public class SparseLRModel extends Model {
     }
 
     public void preTraining(int workerIndex, DataBus dataBus) {
-        setCache(Model.MATRIX_PARAM, new SparseWeights(dim));
+        setCache(Model.MATRIX_PARAM, new SparseWeights());
     }
 
     public void postTraining(int workerIndex, DataBus dataBus) {
@@ -124,7 +124,7 @@ public class SparseLRModel extends Model {
 
     public double predict(Matrix s, int workerIndex, DataBus dataBus) {
 
-        Matrix1D<LRSample> samples = (Matrix1D<LRSample>) s;
+        GeneralArray<LRSample> samples = (GeneralArray<LRSample>) s;
         prefetch(samples, dataBus);
 
         SparseWeights  weights = (SparseWeights) getMatrix(Model.MATRIX_PARAM).localCache;

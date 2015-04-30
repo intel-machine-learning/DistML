@@ -34,7 +34,7 @@ public class Model implements Serializable {
         autoPushUpdates = true;
         dataMap = new HashMap<String, DMatrix>();
 
-        registerMatrix(MATRIX_SAMPLE, new DMatrix(DMatrix.TYPE_SAMPLE, 1));
+        registerMatrix(MATRIX_SAMPLE, new DMatrix(1));
     }
 
     public void registerMatrix(String name, DMatrix matrix) {
@@ -69,12 +69,12 @@ public class Model implements Serializable {
         }
     }
 
-    public void partitionParams(int serverNum) {
+    public void autoPartition(int serverNum) {
         System.out.println("partitionParams");
         for (String matrixName: dataMap.keySet()) {
             System.out.println("check DMatrix: " + matrixName);
             DMatrix m = dataMap.get(matrixName);
-            if (m.type != DMatrix.TYPE_PARAM)
+            if (m.hasFlag(DMatrix.FLAG_ON_SERVER))
                 continue;
 
             System.out.println("partition DMatrix: " + matrixName);
@@ -89,7 +89,7 @@ public class Model implements Serializable {
 
         for (String matrixName: dataMap.keySet()) {
             DMatrix m = dataMap.get(matrixName);
-            if (m.type != DMatrix.TYPE_PARAM)
+            if (m.hasFlag(DMatrix.FLAG_PARAM))
                 continue;
 
             PartitionInfo sp = m.serverPartitions();

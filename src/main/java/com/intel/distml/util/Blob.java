@@ -5,14 +5,14 @@ import java.util.List;
 /**
  * Created by yunlong on 2/13/15.
  */
-public class Matrix0D<T> extends Matrix {
+public class Blob<T> extends Matrix {
 
     public T value;
 
-    public Matrix0D() {
+    public Blob() {
     }
 
-    public Matrix0D(T t) {
+    public Blob(T t) {
         this.value = t;
     }
 
@@ -29,7 +29,7 @@ public class Matrix0D<T> extends Matrix {
     }
 
     protected Matrix createEmptySubMatrix() {
-        Matrix0D hm = new Matrix0D();
+        Blob hm = new Blob();
 
         return hm;
     }

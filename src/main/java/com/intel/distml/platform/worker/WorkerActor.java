@@ -19,7 +19,6 @@ import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Logger;
 import com.intel.distml.transport.DataBusImpl;
 import com.intel.distml.util.Matrix;
-import org.apache.zookeeper.Op;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
@@ -255,6 +254,10 @@ public class WorkerActor<T> extends UntypedActor {
 
             // Initialize worker here
             for (DMatrix m : model.dataMap.values()) {
+                if (!m.hasFlag(DMatrix.FLAG_ON_WORKER)) {
+                    continue;
+                }
+
                 PartitionInfo info = m.workerPartitions();
                 KeyCollection keys = m.getRowKeys();  // if not partitioned or copied
                 if (info != null) {

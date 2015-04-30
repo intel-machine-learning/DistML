@@ -34,12 +34,15 @@ dim : Int) extends Model {
 
   this.autoFetchParams = false
 
-  class ParamMatrix(vocabSize : Int) extends DMatrix(DMatrix.TYPE_PARAM, vocabSize) {
+  class ParamMatrix(vocabSize : Int) extends DMatrix(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER, vocabSize) {
+
+    setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH);
 
     override def initOnServer(psIndex: Int, keys: KeyCollection) {
 
       val d = new WordVectorWithAlpha(dim);
-      val nodeData = new Matrix1D[WordVectorWithAlpha](d, keys.size())
+      log("create word vectors: " + keys.size() + ", with dim " + dim)
+      val nodeData = new GeneralArray[WordVectorWithAlpha](d, keys)
 
       for (i <- 0 to keys.size-1) {
         nodeData.values(i) = new WordVectorWithAlpha(dim)
@@ -48,27 +51,27 @@ dim : Int) extends Model {
       setLocalCache(nodeData)
     }
 
-    def autoPartition(psCount : Int): Unit = {
-      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
-
-      val partSize = (dim + psCount -1) / psCount
-      for (i <- 0 to psCount-1) {
-        var first = partSize * i
-        var last = first + partSize - 1
-        if (last >= dim) {
-          last = dim - 1;
-        }
-        var p = new Partition(new KeyRange(first, last));
-        serverPartitions.addPartition(p)
-      }
-    }
+//    def autoPartition(psCount : Int): Unit = {
+//      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
+//
+//      val partSize = (dim + psCount -1) / psCount
+//      for (i <- 0 to psCount-1) {
+//        var first = partSize * i
+//        var last = first + partSize - 1
+//        if (last >= dim) {
+//          last = dim - 1;
+//        }
+//        var p = new Partition(new KeyRange(first, last));
+//        serverPartitions.addPartition(p)
+//      }
+//    }
   }
 
-  class UpdateMatrix(vocabSize : Int) extends DMatrix(DMatrix.TYPE_PARAM, vocabSize) {
+  class UpdateMatrix(vocabSize : Int) extends DMatrix(DMatrix.FLAG_ON_SERVER, vocabSize) {
 
     override def initOnServer(psIndex: Int, keys: KeyCollection) {
       val d = new WordVectorUpdate(dim);
-      val nodeData = new Matrix1D[WordVectorUpdate](d, keys.size())
+      val nodeData = new GeneralArray[WordVectorUpdate](d, keys)
 
       for (i <- 0 to keys.size-1) {
         nodeData.values(i) = new WordVectorUpdate(dim)
@@ -80,20 +83,20 @@ dim : Int) extends Model {
     override def initOnWorker(psIndex: Int, keys: KeyCollection) {
     }
 
-    def autoPartition(psCount : Int): Unit = {
-      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
-
-      val partSize = (dim + psCount -1) / psCount
-      for (i <- 0 to psCount-1) {
-        var first = partSize * i
-        var last = first + partSize - 1
-        if (last >= dim) {
-          last = dim - 1;
-        }
-        var p = new Partition(new KeyRange(first, last));
-        serverPartitions.addPartition(p)
-      }
-    }
+//    def autoPartition(psCount : Int): Unit = {
+//      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
+//
+//      val partSize = (dim + psCount -1) / psCount
+//      for (i <- 0 to psCount-1) {
+//        var first = partSize * i
+//        var last = first + partSize - 1
+//        if (last >= dim) {
+//          last = dim - 1;
+//        }
+//        var p = new Partition(new KeyRange(first, last));
+//        serverPartitions.addPartition(p)
+//      }
+//    }
   }
 
   @transient var expTable: Array[Float] = null;
@@ -101,27 +104,35 @@ dim : Int) extends Model {
   @transient var neu1e : TempNodeData = null
   var nextRandom: Long = 5
 
-  registerMatrix(Model.MATRIX_PARAM, new ParamMatrix(wordTree.vocabSize))
-  registerMatrix(Model.MATRIX_UPDATE, new UpdateMatrix(wordTree.vocabSize))
+  locally {
+    var params = new ParamMatrix(wordTree.vocabSize);
+    params.setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH)
+    registerMatrix(Model.MATRIX_PARAM, params)
+    var updates = new UpdateMatrix(wordTree.vocabSize);
+    updates.setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH)
+    registerMatrix(Model.MATRIX_UPDATE, updates)
+
+  }
 
   override def transformSamples (samples: java.util.List[AnyRef]) : Matrix = {
     println("transform samples: " + samples.size());
-    return new Matrix0D[java.util.List[AnyRef]](samples)
+    return new Blob[java.util.List[AnyRef]](samples)
     //return samples.get(0).asInstanceOf[Matrix]
   }
 
   private def log(msg: String) {
     Logger.InfoLog("****************** " + msg + " ******************", Logger.Role.APP, 0)
   }
-
-  private def autoPartition(psCount : Int) {
-
-    val paramMatrix = getMatrix(Model.MATRIX_PARAM).asInstanceOf[ParamMatrix]
-    paramMatrix.autoPartition(psCount)
-
-    val updateMatrix = getMatrix(Model.MATRIX_UPDATE).asInstanceOf[UpdateMatrix]
-    updateMatrix.autoPartition(psCount)
-  }
+//
+//
+//  private def autoPartition(psCount : Int) {
+//
+//    val paramMatrix = getMatrix(Model.MATRIX_PARAM).asInstanceOf[ParamMatrix]
+//    paramMatrix.autoPartition(psCount)
+//
+//    val updateMatrix = getMatrix(Model.MATRIX_UPDATE).asInstanceOf[UpdateMatrix]
+//    updateMatrix.autoPartition(psCount)
+//  }
 
   private def init {
     expTable = new Array[Float](Word2VecModel.EXP_TABLE_SIZE)
@@ -136,8 +147,9 @@ dim : Int) extends Model {
   }
 
   override def mergeUpdate(serverIndex: Int, matrixName: String, update: Matrix): Unit = {
-    val params = getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[Matrix1D[WordVectorWithAlpha]]
-    val deltas = getMatrix(Model.MATRIX_UPDATE).localCache.asInstanceOf[Matrix1D[WordVectorUpdate]]
+    val params = getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[GeneralArray[WordVectorWithAlpha]]
+    val deltas = getMatrix(Model.MATRIX_UPDATE).localCache.asInstanceOf[GeneralArray[WordVectorUpdate]]
+    println("delta row keys: " + deltas.rowKeys);
 
     val u = update.asInstanceOf[HashMapMatrix[WordVectorUpdate]].data
     for (key <- u.keySet()) {
@@ -197,14 +209,15 @@ dim : Int) extends Model {
     if (expTable == null)
       init
 
-    var sentences = s.asInstanceOf[Matrix0D[util.LinkedList[String]]].element()
+    var sentences = s.asInstanceOf[Blob[util.LinkedList[String]]].element()
     //println("sentences: " + sentences);
     val keyList = prefetch(sentences, wordTree, wordMap);
 
+    log("prefetch: " + keyList.size())
     val dataMap : HashMapMatrix[WordVectorWithAlpha] = dataBus.fetchFromServer(Model.MATRIX_PARAM, keyList).asInstanceOf[HashMapMatrix[WordVectorWithAlpha]];
     val updateMap = createUpdateMap(dataMap)
 
-    log("training sentences: " + sentences.size());
+    log("training sentences: " + sentences.size() + ", " + dataMap.getRowKeys.size());
 
     for (line <- sentences) {
       //println("train with line: " + line)
@@ -239,7 +252,7 @@ dim : Int) extends Model {
   }
 
   def createUpdateMap(vectorMap : HashMapMatrix[WordVectorWithAlpha]): HashMapMatrix[WordVectorUpdate] = {
-    val updateMap = new HashMapMatrix[WordVectorUpdate](vectorMap.dim);
+    val updateMap = new HashMapMatrix[WordVectorUpdate]();
     for (key <- vectorMap.data.keySet()) {
       updateMap.put(key, new WordVectorUpdate(Word2VecModel.vectorSize));
     }
@@ -480,7 +493,7 @@ object Word2VecModel {
   def saveToHDFS(outputFolder:String, model : Word2VecModel): Unit = {
     println("writint word2vec model to hdfs...")
     // =================== write model to HDFS =======================
-    val params = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[Matrix1D[WordVectorWithAlpha]]
+    val params = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[GeneralArray[WordVectorWithAlpha]]
 
     val fs = FileSystem.get(URI.create(outputFolder), new Configuration())
     var dst = new Path(outputFolder + "/model.bin")
@@ -516,12 +529,12 @@ object Word2VecModel {
 
   def getWord2VecMap( model : Word2VecModel): Word2VecModelAPI = {
 
-    println("get word map vec : String -> Float")
     val word2VecMap = mutable.HashMap.empty[String, Array[Float]]
-    val params = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[Matrix1D[WordVectorWithAlpha]]
+    val params = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[GeneralArray[WordVectorWithAlpha]]
+    println("get word map vec : String -> Float: " + model.wordTree.vocabSize + ", " + params.rowKeys.size())
 
     for (wordIndex <- 0 to model.wordTree.vocabSize - 1) {
-      println("write: " + wordIndex)
+      //println("write: " + wordIndex)
 
       val w = model.wordTree.getWord(wordIndex)
       val word = w.name

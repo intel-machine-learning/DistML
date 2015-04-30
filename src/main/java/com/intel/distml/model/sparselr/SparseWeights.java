@@ -10,8 +10,8 @@ import java.util.HashMap;
  */
 public class SparseWeights extends HashMapMatrix<WeightItem> {
 
-    public SparseWeights(long dim) {
-        super(dim);
+    public SparseWeights() {
+        super();
     }
 
     public SparseWeights(long dim, HashMap<Long, WeightItem> data) {
@@ -19,7 +19,7 @@ public class SparseWeights extends HashMapMatrix<WeightItem> {
     }
 
     protected Matrix createEmptySubMatrix() {
-        SparseWeights weights = new SparseWeights(dim);
+        SparseWeights weights = new SparseWeights();
         return weights;
     }
 

@@ -11,7 +11,7 @@ import java.util.Set;
 public class HashMapMatrix<T> extends Matrix {
 
     public HashMap<Long, T> data;
-    public long dim;
+//    public long dim;
 
     public class KeySet implements KeyCollection {
 
@@ -87,13 +87,13 @@ public class HashMapMatrix<T> extends Matrix {
         }
     }
 
-    public HashMapMatrix(long dim) {
+    public HashMapMatrix(/*long dim*/) {
         data = new HashMap<Long, T>();
-        this.dim = dim;
+        //this.dim = dim;
     }
 
     public HashMapMatrix(long dim, HashMap<Long, T> data) {
-        this.dim = dim;
+        //this.dim = dim;
         this.data = data;
     }
 
@@ -118,7 +118,7 @@ public class HashMapMatrix<T> extends Matrix {
     }
 
     protected Matrix createEmptySubMatrix() {
-        HashMapMatrix hm = new HashMapMatrix(dim);
+        HashMapMatrix hm = new HashMapMatrix();
 
         return hm;
     }

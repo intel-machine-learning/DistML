@@ -64,7 +64,7 @@ public class DataBusImpl<T> extends ServerDataBusImpl {
 
             for (String matrixName: model.dataMap.keySet()) {
                 DMatrix m = model.dataMap.get(matrixName);
-                if (m.type != DMatrix.TYPE_UPDATE)
+                if (m.hasFlag(DMatrix.FLAG_UPDATE))
                     continue;
 
                 System.out.println("push update: " + matrixName);
@@ -103,7 +103,7 @@ public class DataBusImpl<T> extends ServerDataBusImpl {
     public void pushUpdatesAndWait() {
         for (String matrixName: model.dataMap.keySet()) {
             DMatrix m = model.dataMap.get(matrixName);
-            if (m.type != DMatrix.TYPE_UPDATE)
+            if (m.hasFlag(DMatrix.FLAG_UPDATE))
                 continue;
 
             if (m.localCache != null)
@@ -156,7 +156,7 @@ public class DataBusImpl<T> extends ServerDataBusImpl {
 
         for (String matrixName: model.dataMap.keySet()) {
             DMatrix m = model.dataMap.get(matrixName);
-            if (m.type != DMatrix.TYPE_PARAM)
+            if (m.hasFlag(DMatrix.FLAG_PARAM))
                 continue;
 
             PartitionInfo sp = m.serverPartitions();

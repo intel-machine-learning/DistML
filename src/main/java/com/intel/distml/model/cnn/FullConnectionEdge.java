@@ -25,7 +25,7 @@ public class FullConnectionEdge extends Edge {
 
         ImagesData images = (ImagesData) databus.fetchFromWorker(srcLayer.getGlobalName(Model.MATRIX_DATA));
 
-        Matrix1D<Float> vector = (Matrix1D<Float>) dstLayer.getCache(Model.MATRIX_DATA);
+        GeneralArray<Float> vector = (GeneralArray<Float>) dstLayer.getCache(Model.MATRIX_DATA);
 
         matrix.calculate(images, vector);
         vector.show();
@@ -44,10 +44,10 @@ public class FullConnectionEdge extends Edge {
 
         LabeledImage images = (LabeledImage) network.sample;
 
-        Matrix1D<Float> output = (Matrix1D<Float>) dstLayer.getMatrix(Model.MATRIX_DATA).localCache;
-        Matrix1D<Float> error = (Matrix1D<Float>) dstLayer.getMatrix(Model.MATRIX_ERROR).localCache;
+        GeneralArray<Float> output = (GeneralArray<Float>) dstLayer.getMatrix(Model.MATRIX_DATA).localCache;
+        GeneralArray<Float> error = (GeneralArray<Float>) dstLayer.getMatrix(Model.MATRIX_ERROR).localCache;
 
-        Matrix1D<Float> delta=(Matrix1D<Float>) dstLayer.getCache(Model.MATRIX_DELTA);
+        GeneralArray<Float> delta=(GeneralArray<Float>) dstLayer.getCache(Model.MATRIX_DELTA);
         FullConnectionMatrix updates = (FullConnectionMatrix) dstLayer.getCache(Model.MATRIX_UPDATE);
         ImagesData sd=(ImagesData) srcLayer.getCache(Model.MATRIX_DATA);
         ImagesData srcDelta=(ImagesData)srcLayer.getCache(Model.MATRIX_DELTA);
@@ -109,7 +109,7 @@ public class FullConnectionEdge extends Edge {
 //        }
 //        //updates.show();
 //    }
-    public void computeDstUpdate(Matrix1D<Float> delta,ImagesData srcData,float[][] update){
+    public void computeDstUpdate(GeneralArray<Float> delta,ImagesData srcData,float[][] update){
         for(int i=0;i<update.length;i++)
             for (int j=0;j<update[0].length-1;j++){
                 update[i][j]= MNISTModel.eta*delta.values[i]*srcData.values[j/16][j%16/4][j%16%4];
@@ -119,7 +119,7 @@ public class FullConnectionEdge extends Edge {
             update[i][update[0].length - 1] += delta.values[i];
         }
     }
-    public void computeSrcDelta(Matrix1D<Float> delta, FullConnectionMatrix param,ImagesData srcDelta){
+    public void computeSrcDelta(GeneralArray<Float> delta, FullConnectionMatrix param,ImagesData srcDelta){
         for(int i=0;i<srcDelta.values.length;i++)
             for(int j=0;j<srcDelta.values[0].length;j++)
                 for(int k=0;k<srcDelta.values[0][0].length;k++) {

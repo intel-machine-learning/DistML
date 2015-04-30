@@ -63,14 +63,10 @@ public class KeyRange implements KeyCollection {
 
     public KeyCollection[] hashSplit(int hostNum) {
         System.out.println("hash partition key range [" + firstKey + ", " + lastKey + "] for " + hostNum + " hosts");
-        KeyCollection[] sets = new KeyRange[hostNum];
+        KeyCollection[] sets = new KeyHash[hostNum];
 
-        long start = firstKey;
-        long step = (lastKey - firstKey + hostNum) / hostNum;
         for (int i = 0; i < hostNum; i++) {
-            long end = Math.min(start + step - 1, lastKey);
-            sets[i] = new KeyRange(start, end);
-            start += step;
+            sets[i] = new KeyHash(hostNum, i, lastKey);
         }
 
         return sets;

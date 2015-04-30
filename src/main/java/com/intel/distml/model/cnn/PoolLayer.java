@@ -26,9 +26,9 @@ public class PoolLayer extends ImageLayer {
         PoolEdge edge = new PoolEdge(images, this);
         addEdge(edge);
 
-        registerMatrix(Model.MATRIX_ERROR, new ImageNodes(DMatrix.TYPE_ERROR));
-        registerMatrix(Model.MATRIX_DATA, new ImageNodes(DMatrix.TYPE_DATA));
-        registerMatrix(Model.MATRIX_DELTA, new ImageNodes(DMatrix.TYPE_DELTA));
+        registerMatrix(Model.MATRIX_ERROR, new ImageNodes());
+        registerMatrix(Model.MATRIX_DATA, new ImageNodes());
+        registerMatrix(Model.MATRIX_DELTA, new ImageNodes());
     }
 
 

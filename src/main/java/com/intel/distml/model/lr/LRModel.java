@@ -1,8 +1,10 @@
 package com.intel.distml.model.lr;
 
 import com.intel.distml.api.DMatrix;
+import com.intel.distml.api.DParam;
 import com.intel.distml.api.databus.DataBus;
 import com.intel.distml.api.Model;
+import com.intel.distml.api.neuralnetwork.DUpdate;
 import com.intel.distml.model.rosenblatt.Weights;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Matrix;
@@ -15,10 +17,10 @@ import java.util.List;
 public class LRModel extends Model {
     int dim;
 
-    private class SensorNodes extends DMatrix {
+    private class SensorNodes extends DParam {
 
-        public SensorNodes(int type) {
-            super(type, dim);
+        public SensorNodes() {
+            super(dim);
         }
 
         @Override
@@ -36,10 +38,10 @@ public class LRModel extends Model {
         }
     }
 
-    private class UpdateMatrix extends DMatrix {
+    private class UpdateMatrix extends DUpdate {
 
-        public UpdateMatrix(int type) {
-            super(type, dim);
+        public UpdateMatrix() {
+            super(dim);
         }
 
         @Override
@@ -60,8 +62,8 @@ public class LRModel extends Model {
         super();
         dim = d;
         System.out.println("I am initializing");
-        registerMatrix("weights", new SensorNodes(DMatrix.TYPE_PARAM));
-        registerMatrix("momentum", new UpdateMatrix(DMatrix.TYPE_UPDATE));
+        registerMatrix("weights", new SensorNodes());
+        registerMatrix("momentum", new UpdateMatrix());
     }
 
     public void show() {

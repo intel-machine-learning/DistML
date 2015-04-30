@@ -113,7 +113,7 @@ class KryoSerializer(val system: ExtendedActorSystem) extends akka.serialization
     kryo.register(classOf[Array[WordVectorWithAlpha]]);
     kryo.register(classOf[HashMapMatrix[WordVectorWithAlpha]]);
     kryo.register(classOf[java.util.HashMap[Long, WordVectorWithAlpha]]);
-    kryo.register(classOf[Matrix1D[WordVectorWithAlpha]]);
+    kryo.register(classOf[GeneralArray[WordVectorWithAlpha]]);
     kryo.register(classOf[WordVectorUpdate]);
     kryo.register(classOf[Array[WordVectorUpdate]]);
     //kryo.register(com.intel.scaml.transport.DataBusProtocol.PartialDataRequest.class);

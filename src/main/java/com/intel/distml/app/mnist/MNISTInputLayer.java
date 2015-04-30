@@ -15,7 +15,7 @@ public class MNISTInputLayer extends ImageLayer implements InputLayer {
     public MNISTInputLayer(NeuralNetwork model, int w, int h, int n) {
         super(model, "input", w, h, n);
 
-        DMatrix data = new DMatrix(DMatrix.TYPE_DATA, n);
+        DMatrix data = new DMatrix(n);
         registerMatrix(Model.MATRIX_DATA, data);
     }
 

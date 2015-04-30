@@ -10,7 +10,7 @@ public class DParam extends DMatrix {
     Matrix update;
 
     public DParam(int rows) {
-        super(DMatrix.TYPE_PARAM, rows);
+        super(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER, rows);
     }
 
     public void setUpdate(Matrix update) {

@@ -8,27 +8,23 @@ public class ConvLayer extends ImageLayer {
 
 	private class ConvNodes extends DMatrix {
 
-		public ConvNodes(int type) {
-			super(type, imageNum);
+		public ConvNodes(int flags) {
+			super(flags, imageNum);
 		}
 
 		@Override
 		public void initOnServer(int psIndex, KeyCollection keys) {
-			if (type == DMatrix.TYPE_PARAM) {
-				ConvKernels data = new ConvKernels(kernelWidth, kernelHeight, input.imageNum, (KeyRange) keys);
-				//data.initRandom(input.imageNum, imageNum);
-				data.initWithValue(0.002105f);
+			ConvKernels data = new ConvKernels(kernelWidth, kernelHeight, input.imageNum, (KeyRange) keys);
+			//data.initRandom(input.imageNum, imageNum);
+			data.initWithValue(0.002105f);
 
-				setLocalCache(data);
-			}
+			setLocalCache(data);
 		}
 
 		@Override
 		public void initOnWorker(int workerIndex, KeyCollection keys) {
-			if (type == DMatrix.TYPE_UPDATE) {
-				ConvKernels data = new ConvKernels(kernelWidth, kernelHeight, input.imageNum, (KeyRange) keys);
-				setLocalCache(data);
-			}
+			ConvKernels data = new ConvKernels(kernelWidth, kernelHeight, input.imageNum, (KeyRange) keys);
+			setLocalCache(data);
 		}
 
 		public void mergeUpdate(int serverIndex, Matrix update) {
@@ -54,10 +50,10 @@ public class ConvLayer extends ImageLayer {
 		ConvEdge edge = new ConvEdge(input, this);
 		addEdge(edge);
 
-		registerMatrix(Model.MATRIX_PARAM, new ConvNodes(DMatrix.TYPE_PARAM));
-		registerMatrix(Model.MATRIX_UPDATE, new ConvNodes(DMatrix.TYPE_UPDATE));
-		registerMatrix(Model.MATRIX_DATA, new ImageNodes(DMatrix.TYPE_DATA));
-		registerMatrix(Model.MATRIX_DELTA, new ImageNodes(DMatrix.TYPE_DELTA));
+		registerMatrix(Model.MATRIX_PARAM, new ConvNodes(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER));
+		registerMatrix(Model.MATRIX_UPDATE, new ConvNodes(DMatrix.FLAG_ON_WORKER));
+		registerMatrix(Model.MATRIX_DATA, new ImageNodes());
+		registerMatrix(Model.MATRIX_DELTA, new ImageNodes());
 
 	}
 

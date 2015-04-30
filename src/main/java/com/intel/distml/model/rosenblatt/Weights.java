@@ -1,11 +1,11 @@
 package com.intel.distml.model.rosenblatt;
 
-import com.intel.distml.util.Matrix1D;
+import com.intel.distml.util.GeneralArray;
 
 /**
  * Created by yunlong on 2/4/15.
  */
-public class Weights extends Matrix1D<Double> {
+public class Weights extends GeneralArray<Double> {
 
     public Weights() {
     }
@@ -15,7 +15,7 @@ public class Weights extends Matrix1D<Double> {
     }
 
     public void mergeUpdates(Weights updates) {
-        for (int i = 0; i < dim; i++) {
+        for (int i = 0; i < rowKeys.size(); i++) {
             values[i] += updates.values[i];
         }
     }
