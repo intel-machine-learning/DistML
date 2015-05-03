@@ -92,7 +92,7 @@ public class GeneralDataBus {
     }
 
     public boolean pushToRemote(String matrixName, boolean replace, Matrix data, PartitionInfo partitionInfo, ActorRef[] remotes) {
-        log("pushToRemote: " + data + ", partitionInfo=" + partitionInfo);
+        log("pushToRemote: " + data + ", partitionInfo=" + partitionInfo + ", " + data.getRowKeys().size());
 
         LinkedList<Future<Object>> responseFutures = new LinkedList<Future<Object>>();
 
@@ -105,14 +105,19 @@ public class GeneralDataBus {
             responseFutures.add(Patterns.ask(remotes[partitionInfo.exclusiveIndex], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
         }
         else {
+            int total = 0;
             for (int serverIndex = 0; serverIndex < partitionInfo.partitions.size(); ++serverIndex) {
                 Partition partition = partitionInfo.partitions.get(serverIndex);
                 Matrix part = data.subMatrix(partition.keys, KeyCollection.ALL);
                 if ((part != null) && (part.getRowKeys().size() > 0)) {
                     log("push data size " + part.getRowKeys().size() + " to " + remotes[serverIndex]);
+                    total += part.getRowKeys().size();
                     DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, replace, part);
                     responseFutures.add(Patterns.ask(remotes[serverIndex], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
                 }
+            }
+            if (total < data.getRowKeys().size()) {
+                throw new RuntimeException("not all data can be pushed.");
             }
         }
         Future<Iterable<Object>> responsesFuture = sequence(responseFutures, context.dispatcher());

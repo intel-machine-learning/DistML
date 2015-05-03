@@ -31,11 +31,11 @@ public class DMatrix extends Matrix {
 	public int flags;
 	protected KeyRange rowKeys;
 
-	public DMatrix(int rows) {
+	public DMatrix(long rows) {
 		this(FLAG_ON_WORKER, rows);
 	}
 
-	public DMatrix(int flags, int rows) {
+	public DMatrix(int flags, long rows) {
 		this.flags = flags;
 		this.partitionStrategy = PARTITION_STRATEGY_LINEAR;
 
@@ -43,6 +43,7 @@ public class DMatrix extends Matrix {
 	}
 
 	public boolean hasFlag(int flag) {
+		System.out.println("check flag: " + flags + ", " + flag + ", " + rowKeys.size());
 		return (flags & flag) > 0;
 	}
 
@@ -71,7 +72,7 @@ public class DMatrix extends Matrix {
 	}
 
 	void partition(int serverNum) {
-		System.out.println("partitioning: " + serverNum + ", " + partitionStrategy);
+		System.out.println("partitioning: servers=" + serverNum + ", strategy=" + partitionStrategy + ", rows=" + rowKeys.size());
 
 		KeyCollection[] keySets;
 		if (partitionStrategy == PARTITION_STRATEGY_LINEAR) {
@@ -92,40 +93,7 @@ public class DMatrix extends Matrix {
 
 		serverPartitions = info;
 	}
-/*
-	public void partition(boolean isServer, PartitionInfo p) {
-		if (isServer) {
-			serverPartitions = p;
-		}
-		else {
-			workerPartitions = p;
-		}
-	}
 
-	public void partition(boolean isServer, PartitionInfo.Type partitionType, int hostNum) {
-
-		PartitionInfo p;
-		switch (partitionType) {
-			case COPIED: {
-				p = new PartitionInfo(PartitionInfo.Type.COPIED);
-				break;
-			}
-			case PARTITIONED: {
-				p = getRowKeys().partitionEqually(hostNum);
-				break;
-			}
-			case EXCLUSIVE: {
-				p = new PartitionInfo(PartitionInfo.Type.EXCLUSIVE);
-				p.exclusiveIndex = 0;
-				break;
-			}
-			default:	// user will partition it manually.
-				return;
-		}
-
-		partition(isServer, p);
-	}
-*/
 	public void setLocalCache(Matrix matrix) {
 		this.localCache = matrix;
 	}

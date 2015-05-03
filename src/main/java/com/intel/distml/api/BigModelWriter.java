@@ -26,7 +26,7 @@ public class BigModelWriter implements ModelWriter {
         for (String matrixName : model.dataMap.keySet()) {
             DMatrix m = model.dataMap.get (matrixName);
             if (m.hasFlag(DMatrix.FLAG_PARAM)) {
-                int size = m.getRowKeys().size();
+                long size = m.getRowKeys().size();
                 System.out.println("total param: " + size);
 
                 m.setLocalCache(null);

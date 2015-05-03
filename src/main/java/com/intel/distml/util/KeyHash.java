@@ -36,14 +36,18 @@ public class KeyHash implements KeyCollection {
         throw new UnsupportedOperationException("This method is not supported.");
     }
 */
-    public int size() {
-        return (int) ((totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0));
+    public long size() {
+        return (totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0);
     }
 
     @Override
     public boolean contains(long key) {
-        System.out.println("check contains: " + key + ", quato=" + hashQuato + ", index=" + hashIndex + ", total=" + totalKeyNum);
-        return (key < totalKeyNum) && (key % hashQuato == hashIndex);
+        if ((key >= totalKeyNum) || (key < 0)) {
+            throw new RuntimeException("unexpected key: " + key + " >= " + totalKeyNum);
+        }
+
+        //System.out.println("check contains: " + key + ", quato=" + hashQuato + ", index=" + hashIndex + ", total=" + totalKeyNum);
+        return key % hashQuato == hashIndex;
     }
 
     @Override
@@ -92,6 +96,7 @@ public class KeyHash implements KeyCollection {
             return KeyCollection.EMPTY;
         }
 
+        //System.out.println("intersect: " + this.hashQuato + ", " + this.hashIndex + ", " + keys.size() + ", result=" + list.size());
         return list;
     }
 

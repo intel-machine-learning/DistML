@@ -21,15 +21,15 @@ public class ConvKernels extends Matrix {
     KeyCollection rowKeys, colKeys;
 
     public ConvKernels(int kernalWidth, int kernalHeight, int inputCount, KeyRange rowKeys) {
-        this.values = new float[rowKeys.size()][inputCount][kernalWidth][kernalHeight];
-        this.bias=new float[rowKeys.size()];
+        this.values = new float[(int)rowKeys.size()][inputCount][kernalWidth][kernalHeight];
+        this.bias=new float[(int)rowKeys.size()];
         this.rowKeys = rowKeys;
         this.colKeys = new KeyRange(0, inputCount - 1);
         this.kernalHeight = kernalHeight;
         this.kernalWidth = kernalWidth;
 
         this.inputCount = inputCount;
-        this.outputCount = rowKeys.size();
+        this.outputCount = (int) rowKeys.size();
     }
 
     public KeyCollection getRowKeys() {

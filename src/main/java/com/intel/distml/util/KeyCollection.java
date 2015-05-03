@@ -20,7 +20,7 @@ public interface KeyCollection extends Serializable {
 
     boolean isEmpty();
 
-    int size();
+    long size();
 /*
     public PartitionInfo partitionEqually(int partitionNum);
 
@@ -64,7 +64,7 @@ public interface KeyCollection extends Serializable {
         }
 */
         @Override
-        public int size() {
+        public long size() {
             return 0;
         }
     };
@@ -116,7 +116,7 @@ public interface KeyCollection extends Serializable {
         }
 */
         @Override
-        public int size() {
+        public long size() {
             return 1;
         }
     };
@@ -159,7 +159,7 @@ public interface KeyCollection extends Serializable {
         }
 */
         @Override
-        public int size() {
+        public long size() {
             throw new UnsupportedOperationException("This is an ALL_KEYS instance, size unknown");
         }
     };

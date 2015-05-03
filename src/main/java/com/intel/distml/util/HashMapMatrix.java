@@ -55,7 +55,7 @@ public class HashMapMatrix<T> extends Matrix {
             return data.isEmpty();
         }
 
-        public int size() {
+        public long size() {
             return data.size();
         }
 /*
@@ -92,8 +92,12 @@ public class HashMapMatrix<T> extends Matrix {
         //this.dim = dim;
     }
 
-    public HashMapMatrix(long dim, HashMap<Long, T> data) {
+    public HashMapMatrix(int initialCapacity) {
+        data = new HashMap<Long, T>(initialCapacity);
         //this.dim = dim;
+    }
+
+    public HashMapMatrix(HashMap<Long, T> data) {
         this.data = data;
     }
 

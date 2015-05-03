@@ -14,8 +14,12 @@ public class SparseWeights extends HashMapMatrix<WeightItem> {
         super();
     }
 
-    public SparseWeights(long dim, HashMap<Long, WeightItem> data) {
-        super(dim, data);
+    public SparseWeights(int initialCapacity) {
+        super(initialCapacity);
+    }
+
+    public SparseWeights(HashMap<Long, WeightItem> data) {
+        super(data);
     }
 
     protected Matrix createEmptySubMatrix() {

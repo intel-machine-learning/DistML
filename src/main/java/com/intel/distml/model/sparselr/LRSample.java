@@ -12,12 +12,12 @@ public class LRSample extends HashMapMatrix<Double> {
     public double label;
 
 
-    public LRSample(int dim) {
-        this(dim, new HashMap<Long, Double>(), 0.0);
+    public LRSample() {
+        this(new HashMap<Long, Double>(), 0.0);
     }
 
-    public LRSample(int dim, HashMap<Long, Double> d, double l) {
-        super(dim, d);
+    public LRSample(HashMap<Long, Double> d, double l) {
+        super(d);
         label = l;
     }
 

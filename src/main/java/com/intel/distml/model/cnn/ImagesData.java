@@ -22,12 +22,12 @@ public class ImagesData extends Matrix {
 
     public ImagesData(int imageWidth, int imageHeight, KeyCollection keys) {
 
-        values = new float[keys.size()][imageWidth][imageHeight];
+        values = new float[(int)keys.size()][imageWidth][imageHeight];
 
         this.imageHeight = imageHeight;
         this.imageWidth = imageWidth;
         this.keys = keys;
-        this.imageNum = keys.size();
+        this.imageNum = (int)keys.size();
     }
 
     public float[][] element(long index) {

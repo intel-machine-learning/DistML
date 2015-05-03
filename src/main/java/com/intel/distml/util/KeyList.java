@@ -14,7 +14,7 @@ public class KeyList implements KeyCollection {
         keys = new HashSet<Long>();
     }
 
-    public int size() {
+    public long size() {
         return keys.size();
     }
 

@@ -74,8 +74,10 @@ public class Model implements Serializable {
         for (String matrixName: dataMap.keySet()) {
             System.out.println("check DMatrix: " + matrixName);
             DMatrix m = dataMap.get(matrixName);
-            if (m.hasFlag(DMatrix.FLAG_ON_SERVER))
+            if (!m.hasFlag(DMatrix.FLAG_ON_SERVER)) {
+                System.out.println("skip it since it's not on server");
                 continue;
+            }
 
             System.out.println("partition DMatrix: " + matrixName);
             m.partition(serverNum);

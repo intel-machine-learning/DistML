@@ -158,6 +158,7 @@ public class WorkerActor<T> extends UntypedActor {
 
                 model.compute(model.transformSamples(sampleList), workerIndex, dataBusProxy);
             }
+            log("training thread stopped.");
         }
     };
 
@@ -196,7 +197,7 @@ public class WorkerActor<T> extends UntypedActor {
 
 	@Override
 	public void onReceive(Object msg) {
-        log("onReceive: " + msg);
+        log("onReceive: " + msg + ", " + innerState.currentTrainingProgress + ", " + conf.progressStepSize());
         if (msg instanceof MonitorActor.VariableChange) {
             MonitorActor.VariableChange vc = (MonitorActor.VariableChange)msg;
             model.variableChanged(vc.name, vc.value);

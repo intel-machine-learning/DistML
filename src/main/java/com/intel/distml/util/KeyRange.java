@@ -25,27 +25,7 @@ public class KeyRange implements KeyCollection {
         KeyRange range = (KeyRange)obj;
         return (firstKey == range.firstKey) && (lastKey == range.lastKey);
     }
-/*
-    public PartitionInfo partitionEqually(int hostNum) {
-        System.out.println("Partition key range [" + firstKey + ", " + lastKey + "] equally for " + hostNum + " hosts");
-        PartitionInfo info = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
 
-        long start = firstKey;
-        long step = (lastKey - firstKey + hostNum) / hostNum;
-
-        for (int i = 0; i < hostNum; i++) {
-            long end = Math.min(start + step - 1, lastKey);
-            Partition p = new Partition();
-            p.index = i;
-            p.keys = new KeyRange(start, end);
-            info.addPartition(p);
-
-            start += step;
-        }
-
-        return info;
-    }
-*/
     public KeyCollection[] linearSplit(int hostNum) {
         System.out.println("linearly partition key range [" + firstKey + ", " + lastKey + "] for " + hostNum + " hosts");
         KeyCollection[] sets = new KeyRange[hostNum];
@@ -66,14 +46,14 @@ public class KeyRange implements KeyCollection {
         KeyCollection[] sets = new KeyHash[hostNum];
 
         for (int i = 0; i < hostNum; i++) {
-            sets[i] = new KeyHash(hostNum, i, lastKey);
+            sets[i] = new KeyHash(hostNum, i, lastKey+1);
         }
 
         return sets;
     }
 
-    public int size() {
-        return (int) (lastKey - firstKey + 1);
+    public long size() {
+        return lastKey - firstKey + 1;
     }
 
     @Override

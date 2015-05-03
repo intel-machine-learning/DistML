@@ -27,7 +27,7 @@ public class GeneralArray<T> extends Matrix {
 
     public GeneralArray(T t, KeyCollection rowKeys) {
         //this.dim = dim;
-        values = (T[]) Array.newInstance(t.getClass(), rowKeys.size());
+        values = (T[]) Array.newInstance(t.getClass(), (int)rowKeys.size());
         this.rowKeys = rowKeys;
     }
 
@@ -120,7 +120,7 @@ public class GeneralArray<T> extends Matrix {
 
             System.out.println("class type: " + getClass() + ", " + values[0].getClass());
 
-            T[] _v = (T[]) Array.newInstance(values[0].getClass(), _rows.size());
+            T[] _v = (T[]) Array.newInstance(values[0].getClass(), (int)_rows.size());
             Iterator<Long> it = _rows.iterator();
             int index = 0;
             while(it.hasNext()) {

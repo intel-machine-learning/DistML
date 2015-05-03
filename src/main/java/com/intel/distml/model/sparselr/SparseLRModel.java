@@ -29,13 +29,13 @@ public class SparseLRModel extends Model {
         }
     }
 
-    int dim;
+    long dim;
     double initialLearningRate = 0.001;
     double minLearningRate = 0.00001;
     double learningRate = initialLearningRate;
 
 
-    public SparseLRModel(int dim) {
+    public SparseLRModel(long dim) {
         this.dim = dim;
         autoFetchParams = false;
         autoPushUpdates = false;
@@ -80,8 +80,8 @@ public class SparseLRModel extends Model {
 //            prefetch(samples, dataBus);
 
         DMatrix params = getMatrix(Model.MATRIX_PARAM);
-//        System.out.println("param partitions: " + params.serverPartitions());
             SparseWeights weights = (SparseWeights) params.localCache;
+        log("train on samples: " + samples.values.length + ", " + weights.getRowKeys().size());
 
             for (int i = 0; i < samples.values.length; i++) {
                 LRSample sample = samples.values[i];
@@ -94,7 +94,7 @@ public class SparseLRModel extends Model {
     }
 
     public void preTraining(int workerIndex, DataBus dataBus) {
-        setCache(Model.MATRIX_PARAM, new SparseWeights());
+        setCache(Model.MATRIX_PARAM, new SparseWeights(80000000));
     }
 
     public void postTraining(int workerIndex, DataBus dataBus) {
@@ -154,4 +154,9 @@ public class SparseLRModel extends Model {
 
         sample.updateWeights(eta, error, weights);
     }
+
+    private void log(String msg) {
+        Logger.InfoLog("****************** " + msg + " ******************", Logger.Role.APP, 0);
+    }
+
 }

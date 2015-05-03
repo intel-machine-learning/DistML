@@ -96,7 +96,7 @@ public class GeneralMatrix<T> extends Matrix {
         System.out.println("values[0][0] = " + values[0][0]);
 
         System.out.println("class type: " + getClass() + ", " + values[0][0].getClass());
-        int[] dims = new int[]{_rows.size(), _cols.size()};
+        int[] dims = new int[]{(int)_rows.size(), (int) _cols.size()};
         System.out.println("dims: " + dims[0] + ", " + dims[1]);
         System.out.println("keys: " + _rows + ", " + _cols);
 
@@ -184,7 +184,7 @@ public class GeneralMatrix<T> extends Matrix {
             long newFirst = Math.max(keys1.lastKey, keys2.lastKey);
             long newLast = Math.min(keys1.firstKey, keys2.firstKey);
             int newSize = (int) (newLast - newFirst);
-            int[] dims = new int[] {rowKeys.size(), newSize};
+            int[] dims = new int[] {(int)rowKeys.size(), newSize};
             T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
 
             T[][] mValues = (T[][]) m.values;
@@ -198,7 +198,7 @@ public class GeneralMatrix<T> extends Matrix {
                 if (keys2.lastKey > keys1.lastKey) {
                     int offset = (int) (keys2.firstKey - keys1.firstKey);
                     for (int i = 0; i < rowKeys.size(); i++) {
-                        for (int j = keys1.size(); j < (keys2.lastKey - keys1.lastKey); j++) {
+                        for (int j = (int)keys1.size(); j < (keys2.lastKey - keys1.lastKey); j++) {
                             _v[i][j] = mValues[i][j - offset];
                         }
                     }
@@ -214,7 +214,7 @@ public class GeneralMatrix<T> extends Matrix {
                 if (keys1.lastKey > keys2.lastKey) {
                     int offset = (int) (keys1.firstKey - keys2.firstKey);
                     for (int i = 0; i < rowKeys.size(); i++) {
-                        for (int j = keys2.size(); j < (keys1.lastKey - keys2.lastKey); j++) {
+                        for (int j = (int)keys2.size(); j < (keys1.lastKey - keys2.lastKey); j++) {
                             _v[i][j] = values[i][j - offset];
                         }
                     }
@@ -241,7 +241,7 @@ public class GeneralMatrix<T> extends Matrix {
             long newFirst = Math.max(keys1.lastKey, keys2.lastKey);
             long newLast = Math.min(keys1.firstKey, keys2.firstKey);
             int newSize = (int) (newLast - newFirst);
-            int[] dims = new int[] {newSize, colKeys.size()};
+            int[] dims = new int[] {newSize, (int)colKeys.size()};
             T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
 
             T[][] mValues = (T[][]) m.values;
@@ -254,7 +254,7 @@ public class GeneralMatrix<T> extends Matrix {
 
                 int offset = (int) (keys2.firstKey - keys1.firstKey);
                 if (keys2.lastKey > keys1.lastKey) {
-                    for (int i = keys1.size(); i < (keys2.lastKey - keys1.lastKey); i++) {
+                    for (int i = (int)keys1.size(); i < (keys2.lastKey - keys1.lastKey); i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
                             _v[i][j] = mValues[i - offset][j];
                         }
@@ -270,7 +270,7 @@ public class GeneralMatrix<T> extends Matrix {
 
                 if (keys2.lastKey > keys1.lastKey) {
                     int offset = (int) (keys1.firstKey - keys2.firstKey);
-                    for (int i = keys2.size(); i < (keys1.lastKey - keys2.lastKey); i++) {
+                    for (int i = (int)keys2.size(); i < (keys1.lastKey - keys2.lastKey); i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
                             _v[i][j] = values[i - offset][j];
                         }

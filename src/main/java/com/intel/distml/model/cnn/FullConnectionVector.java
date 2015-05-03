@@ -90,7 +90,7 @@ public class FullConnectionVector extends Matrix {
         private void readObject(ObjectInputStream is) throws IOException, ClassNotFoundException {
             rows = (KeyRange) is.readObject();
 
-            values = new float[rows.size()];
+            values = new float[(int)rows.size()];
             for (int i = 0; i < rows.size(); i++) {
                 values[i] = is.readFloat();
             }

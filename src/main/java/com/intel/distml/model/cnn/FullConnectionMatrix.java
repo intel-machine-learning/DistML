@@ -11,7 +11,7 @@ public class FullConnectionMatrix extends GeneralMatrix<Float> {
     }
 
     public FullConnectionMatrix(int inputCount, KeyRange rowKeys) {
-        super(new Float[rowKeys.size()][inputCount+1], rowKeys, new KeyRange(0, inputCount));//TODO:last is bias
+        super(new Float[(int)rowKeys.size()][inputCount+1], rowKeys, new KeyRange(0, inputCount));//TODO:last is bias
     }
 
     public void initWithValue(float f) {
@@ -20,7 +20,7 @@ public class FullConnectionMatrix extends GeneralMatrix<Float> {
             for (int j = 0; j < colKeys.size()-1; j++) {
                 values[i][j] = f;
             }
-            this.values[i][colKeys.size()-1]=0.0f;
+            this.values[i][(int)colKeys.size()-1]=0.0f;
         }
     }
     public void initRandom() {
@@ -29,7 +29,7 @@ public class FullConnectionMatrix extends GeneralMatrix<Float> {
             for (int j = 0; j < colKeys.size()-1; j++) {
                 values[i][j] = (float)((Math.random()-0.5)*2*Math.sqrt(6.0/(10+192)));
             }
-            this.values[i][colKeys.size()-1]=0.0f;
+            this.values[i][(int)colKeys.size()-1]=0.0f;
         }
     }
 
@@ -55,7 +55,7 @@ public class FullConnectionMatrix extends GeneralMatrix<Float> {
                     }
                 }
             }
-            sum+=this.values[i][colKeys.size()-1];
+            sum+=this.values[i][(int)colKeys.size()-1];
             vector[i] = sigmoid(sum);
         }
     }

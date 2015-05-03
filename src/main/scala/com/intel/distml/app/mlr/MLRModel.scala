@@ -26,7 +26,7 @@ class MLRModel extends SparseLRModel(MLR.MLR_DIM) {
     val str: String = strObj.asInstanceOf[String]
     System.out.println("sample string: [" + str + "]")
     val strs: Array[String] = str.split(" ")
-    val sample: LRSample = new LRSample(MLR.MLR_DIM)
+    val sample: LRSample = new LRSample()
     sample.label = strs(0).toDouble
 
     for (i <- 0 to strs.length-1) {

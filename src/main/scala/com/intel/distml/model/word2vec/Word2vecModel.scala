@@ -44,7 +44,8 @@ dim : Int) extends Model {
       log("create word vectors: " + keys.size() + ", with dim " + dim)
       val nodeData = new GeneralArray[WordVectorWithAlpha](d, keys)
 
-      for (i <- 0 to keys.size-1) {
+      var size = keys.size().toInt
+      for (i <- 0 to size-1) {
         nodeData.values(i) = new WordVectorWithAlpha(dim)
         nodeData.values(i).init(Word2VecModel.ALPHA);
       }
@@ -73,7 +74,8 @@ dim : Int) extends Model {
       val d = new WordVectorUpdate(dim);
       val nodeData = new GeneralArray[WordVectorUpdate](d, keys)
 
-      for (i <- 0 to keys.size-1) {
+      var size = keys.size().toInt
+      for (i <- 0 to size-1) {
         nodeData.values(i) = new WordVectorUpdate(dim)
         nodeData.values(i).init();
       }
