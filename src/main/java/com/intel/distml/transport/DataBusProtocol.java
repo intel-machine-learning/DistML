@@ -90,17 +90,17 @@ public class DataBusProtocol {
     public static class PushDataRequest extends ScamlMessage {
 
         public final LinkedList<Data> dataList;
-        public final boolean replace;
+        public final boolean initializeOnly;
 
         public PushDataRequest(LinkedList<Data> dataList) {
             this.dataList = dataList;
-            replace = false;
+            initializeOnly = false;
         }
 
-        public PushDataRequest(String matrixName, boolean replace, Matrix _data) {
+        public PushDataRequest(String matrixName, boolean initializeOnly, Matrix _data) {
             dataList = new LinkedList<Data>();
             dataList.add(new Data(matrixName, _data));
-            this.replace = replace;
+            this.initializeOnly = initializeOnly;
         }
 
         @Override

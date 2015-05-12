@@ -9,9 +9,9 @@ import java.net.URI
 import java.util
 
 import com.intel.distml.api
-import com.intel.distml.api.databus.DataBus
+import com.intel.distml.api.databus.{ServerDataBus, DataBus}
 import com.intel.distml.api.neuralnetwork.Layer
-import com.intel.distml.api.{Partition, DMatrix, PartitionInfo, Model}
+import com.intel.distml.api._
 import com.intel.distml.model.cnn.ConvKernels
 import com.intel.distml.model.sparselr.{LRSample, SparseWeights}
 import com.intel.distml.model.word2vec.WordVectorWithAlpha
@@ -52,20 +52,7 @@ dim : Int) extends Model {
       setLocalCache(nodeData)
     }
 
-//    def autoPartition(psCount : Int): Unit = {
-//      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
-//
-//      val partSize = (dim + psCount -1) / psCount
-//      for (i <- 0 to psCount-1) {
-//        var first = partSize * i
-//        var last = first + partSize - 1
-//        if (last >= dim) {
-//          last = dim - 1;
-//        }
-//        var p = new Partition(new KeyRange(first, last));
-//        serverPartitions.addPartition(p)
-//      }
-//    }
+
   }
 
   class UpdateMatrix(vocabSize : Int) extends DMatrix(DMatrix.FLAG_ON_SERVER, vocabSize) {
@@ -557,6 +544,34 @@ object Word2VecModel {
     data(offset+2) = ((ivalue >> 16) & 0xff).asInstanceOf[Byte];
     data(offset+1) = ((ivalue >>  8) & 0xff).asInstanceOf[Byte];
     data(offset) = (ivalue & 0xff).asInstanceOf[Byte];
+  }
+}
+
+class Word2VecModelWriter(estimatedRowSize : Int) extends BigModelWriter(estimatedRowSize) {
+
+  override def writeModel(m: Model, dataBus: ServerDataBus) {
+
+    var model = m.asInstanceOf[Word2VecModel];
+
+    var dim = model.wordTree.vocabSize.toInt;
+    val d = new WordVectorWithAlpha(dim);
+    val nodeData = new GeneralArray[WordVectorWithAlpha](d, new KeyRange(0, dim-1));
+
+    import scala.collection.JavaConversions._
+    val size: Long = dim
+    System.out.println("total param: " + size)
+    var start: Long = 0L
+    while (start < size - 1) {
+      val end: Long = Math.min(start + maxFetchRows, size) - 1
+      val range: KeyRange = new KeyRange(start, end)
+      System.out.println("fetch param: " + range)
+      val result: Matrix = dataBus.fetchFromServer(Model.MATRIX_PARAM, range)
+      nodeData.mergeMatrix(result);
+      System.out.println("fetch done: " + result.getRowKeys.size())
+      start = end + 1
+    }
+
+    model.setCache(Model.MATRIX_PARAM, nodeData);
   }
 }
 

@@ -6,27 +6,44 @@ import java.util.Iterator;
 /**
  * Created by yunlong on 12/11/14.
  */
-public interface KeyCollection extends Serializable {
+public abstract class KeyCollection implements Serializable {
 
     public static final KeyCollection EMPTY = new EMPTY_KEYS();
 //    public static final KeyCollection SINGLE = new SINGLE_KEYS();
     public static final KeyCollection ALL = new ALL_KEYS();
 
-    boolean contains(long key);
+    public abstract boolean contains(long key);
 
-    KeyCollection intersect(KeyCollection keys);
+    public abstract Iterator<Long> iterator();
 
-    Iterator<Long> iterator();
+    public abstract boolean isEmpty();
 
-    boolean isEmpty();
+    public abstract long size();
 
-    long size();
-/*
-    public PartitionInfo partitionEqually(int partitionNum);
+    public KeyCollection intersect(KeyCollection keys) {
 
-    public KeyCollection[] split(int hostNum);
-*/
-    static class EMPTY_KEYS implements KeyCollection {
+        if (keys.equals(KeyCollection.ALL)) {
+            return this;
+        }
+
+        if (keys.equals(KeyCollection.EMPTY)) {
+            return keys;
+        }
+
+        KeyList result = new KeyList();
+
+        Iterator<Long> it = keys.iterator();
+        while(it.hasNext()) {
+            long key = it.next();
+            if (contains(key)) {
+                result.addKey(key);
+            }
+        }
+
+        return result;
+    }
+
+    public static class EMPTY_KEYS extends KeyCollection {
 
         @Override
         public boolean equals(Object obj) {
@@ -69,7 +86,7 @@ public interface KeyCollection extends Serializable {
         }
     };
 
-    static class SINGLE_KEYS implements KeyCollection {
+    public static class SINGLE_KEYS extends KeyCollection {
 
         @Override
         public boolean equals(Object obj) {
@@ -121,7 +138,7 @@ public interface KeyCollection extends Serializable {
         }
     };
 
-    static class ALL_KEYS implements KeyCollection {
+    public static class ALL_KEYS extends KeyCollection {
 
         @Override
         public boolean equals(Object obj) {

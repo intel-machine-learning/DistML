@@ -80,7 +80,7 @@ public class GeneralDataBus {
                 }
                 Matrix m = mergeMatrices(dataList);
                 //m.show();
-                log("fetchFromRemote done.");
+                log("fetchFromRemote done: size=" + m.getRowKeys().size());
                 return m;
             }
         } catch (Exception e) {
@@ -91,17 +91,17 @@ public class GeneralDataBus {
         }
     }
 
-    public boolean pushToRemote(String matrixName, boolean replace, Matrix data, PartitionInfo partitionInfo, ActorRef[] remotes) {
+    public boolean pushToRemote(String matrixName, boolean initializeOnly, Matrix data, PartitionInfo partitionInfo, ActorRef[] remotes) {
         log("pushToRemote: " + data + ", partitionInfo=" + partitionInfo + ", " + data.getRowKeys().size());
 
         LinkedList<Future<Object>> responseFutures = new LinkedList<Future<Object>>();
 
         if ((partitionInfo == null) || (partitionInfo.type == PartitionInfo.Type.COPIED)) {
-            DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, replace, data);
+            DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, initializeOnly, data);
             responseFutures.add(Patterns.ask(remotes[0], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
         }
         else if (partitionInfo.type == PartitionInfo.Type.EXCLUSIVE) {
-            DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, replace, data);
+            DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, initializeOnly, data);
             responseFutures.add(Patterns.ask(remotes[partitionInfo.exclusiveIndex], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
         }
         else {
@@ -112,7 +112,7 @@ public class GeneralDataBus {
                 if ((part != null) && (part.getRowKeys().size() > 0)) {
                     log("push data size " + part.getRowKeys().size() + " to " + remotes[serverIndex]);
                     total += part.getRowKeys().size();
-                    DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, replace, part);
+                    DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, initializeOnly, part);
                     responseFutures.add(Patterns.ask(remotes[serverIndex], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
                 }
             }

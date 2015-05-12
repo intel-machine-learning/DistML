@@ -13,7 +13,7 @@ public class HashMapMatrix<T> extends Matrix {
     public HashMap<Long, T> data;
 //    public long dim;
 
-    public class KeySet implements KeyCollection {
+    public class KeySet extends KeyCollection {
 
         public boolean contains(long key) {
             return data.containsKey(key);

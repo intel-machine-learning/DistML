@@ -18,11 +18,11 @@ import java.io.Serializable;
 
 public class ParameterServerActor extends UntypedActor {
 
-    public static class Started implements Serializable {
+    public static class RegisterRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
         final public int parameterServerIndex;
-        public Started(int parameterServerIndex) {
+        public RegisterRequest(int parameterServerIndex) {
             this.parameterServerIndex = parameterServerIndex;
         }
     }
@@ -30,7 +30,6 @@ public class ParameterServerActor extends UntypedActor {
     private ActorSelection monitor;
     private Model model;
     private int parameterServerIndex;
-
 
     public static Props props(final String monitorPath, final Model model, final int parameterServerIndex) {
         return Props.create(new Creator<ParameterServerActor>() {
@@ -58,8 +57,7 @@ public class ParameterServerActor extends UntypedActor {
             if (info != null) {
                 if (info.type == PartitionInfo.Type.PARTITIONED) {
                     keys = info.getPartition(parameterServerIndex).keys;
-                }
-                else if ((info.type == PartitionInfo.Type.EXCLUSIVE) && (info.exclusiveIndex != parameterServerIndex)) {
+                } else if ((info.type == PartitionInfo.Type.EXCLUSIVE) && (info.exclusiveIndex != parameterServerIndex)) {
                     return;
                 }
             }
@@ -69,7 +67,7 @@ public class ParameterServerActor extends UntypedActor {
         }
 
         log("Parameters initialized");
-        this.monitor.tell(new Started(this.parameterServerIndex), getSelf());
+        this.monitor.tell(new RegisterRequest(this.parameterServerIndex), getSelf());
     }
 
 	@Override
@@ -101,9 +99,15 @@ public class ParameterServerActor extends UntypedActor {
             DataBusProtocol.PushDataRequest req = (DataBusProtocol.PushDataRequest)msg;
 
             for (DataBusProtocol.Data update : req.dataList) {
-                if (req.replace) {
+                if (req.initializeOnly) {
                     log("replacing local cache: " + update.data);
-                    model.getMatrix(update.matrixName).setLocalCache(update.data);
+                    DMatrix m = model.getMatrix(update.matrixName);
+                    if (m.localCache == null) {
+                        m.setLocalCache(update.data);
+                    }
+                    else {
+                        m.mergeMatrix(update.data);
+                    }
                 }
                 else {
                     log("merge begin");

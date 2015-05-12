@@ -324,10 +324,6 @@ public class WorkerLeadActor extends UntypedActor {
                     this.monitor.tell(new ReadyTrainingInfo(groupIndex), getSelf());
                 }
             }
-//        } else if (msg instanceof RequestComplete) {
-//            log("All DataBuses initialized with siblings");
-//            assert ((RequestComplete)msg).successNumber == workerGroupSize;
-//
         } else if (msg instanceof TrainingStart) {
             setState(State.TRAINING);
             barrierRequesters.clear();

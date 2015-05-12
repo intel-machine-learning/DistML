@@ -15,11 +15,9 @@ import com.intel.distml.api.databus.MonitorDataBus;
 import com.intel.distml.platform.TrainingConf;
 import com.intel.distml.platform.server.ParameterServerActor;
 import com.intel.distml.transport.ServerDataBusImpl;
-import com.intel.distml.util.Constants;
-import com.intel.distml.util.Logger;
+import com.intel.distml.util.*;
 import com.intel.distml.platform.worker.WorkerActor;
 import com.intel.distml.platform.worker.WorkerLeadActor;
-import com.intel.distml.util.Matrix;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 
@@ -55,6 +53,13 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
+    public static class ServerInitDone implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        public ServerInitDone() {
+        }
+    }
+
     private ActorRef[] parameterServers;
 
     private ActorRef[] workers;
@@ -78,6 +83,7 @@ public class MonitorActor extends UntypedActor {
     public static enum State {
         CREATED,
         ACTOR_REGISTRATION,
+        INIT_PARAMETER_SERVER,
         INIT_WORKER_LEAD,
         MONITOR_TRAINING,
         DONE
@@ -103,6 +109,30 @@ public class MonitorActor extends UntypedActor {
         }
     };
 
+
+    Thread pushParameterThread = new Thread() {
+
+        @Override
+        public void run() {
+            log("push parameter start.");
+
+            ServerDataBusImpl paramDataBus = new ServerDataBusImpl(-1, parameterServers, model, getContext());
+            for (String matrixName : initialParams.keySet()) {
+
+                Matrix data = initialParams.get(matrixName);
+
+                KeyRange keys = (KeyRange) data.getRowKeys();
+                KeyCollection[] sets = keys.linearSplit(200);
+                for (KeyCollection set : sets) {
+                    paramDataBus.pushInitialParams(matrixName, data.subMatrix(set, KeyCollection.ALL));
+                }
+            }
+
+            log("push parameter done.");
+            getSelf().tell(new ServerInitDone(), getSelf());
+        }
+    };
+
     // Use configuration class later
     public MonitorActor(Model model, HashMap<String, Matrix> params, TrainingConf config, ModelWriter modelWriter) {
         this.parameterServerNumber = config.psCount();
@@ -124,7 +154,6 @@ public class MonitorActor extends UntypedActor {
                 + workerGroupSize + " workerGroupNum: " + workerGroupNum + " workerLeadNum: " + workerLeads.length);
 
         // TODO Add parameter server later, set init state to ACTOR_REGISTRATION current now
-        model.serverReady = false;
         setState(State.ACTOR_REGISTRATION);
     }
 
@@ -140,7 +169,7 @@ public class MonitorActor extends UntypedActor {
     @Override
     public void onReceive(Object msg) throws Exception {
         if (innerState.currentState == State.ACTOR_REGISTRATION) onReceiveActorRegistration(msg);
-        //else if (innerState.currentState == State.INIT_PARAMETER_SERVER) onReceiveInitParameterServer(msg);
+        else if (innerState.currentState == State.INIT_PARAMETER_SERVER) onReceiveInitParameterServer(msg);
         else if (innerState.currentState == State.INIT_WORKER_LEAD) onReceiveInitWorkerLead(msg);
         else if (innerState.currentState == State.MONITOR_TRAINING) onReceiveInitMonitorTraining(msg);
         else unhandled(msg);
@@ -169,45 +198,51 @@ public class MonitorActor extends UntypedActor {
 
             workers[workerStartInfo.globalWorkerIndex] = getSender();
             ++innerState.workerRegistrationCount;
-        } else if (msg instanceof ParameterServerActor.Started) {
-            ParameterServerActor.Started parameterServerStartInfo = (ParameterServerActor.Started)msg;
+        } else if (msg instanceof ParameterServerActor.RegisterRequest) {
+            ParameterServerActor.RegisterRequest parameterServerStartInfo = (ParameterServerActor.RegisterRequest)msg;
             log("Parameter server registered: " + getSender());
 
             parameterServers[parameterServerStartInfo.parameterServerIndex] = getSender();
             ++innerState.parameterServerRegistrationCount;
-            if (innerState.parameterServerRegistrationCount == parameterServerNumber) {
-                model.serverReady = true;
-
-                if (initialParams != null) {
-                    ServerDataBusImpl paramDataBus = new ServerDataBusImpl(-1, parameterServers, model, getContext());
-                    for (String matrixName : initialParams.keySet()) {
-                        log("push parameters to server: " + matrixName);
-                        paramDataBus.pushInitialParams(matrixName, initialParams.get(matrixName));
-                    }
-                }
-
-                checkAllRegistered();
-            }
         }
         else unhandled(msg);
 
         checkAllRegistered();
     }
 
+
+
     private void checkAllRegistered() {
-        if (innerState.workerLeadRegistrationCount == workerGroupNum
-                && innerState.workerRegistrationCount == workerGroupNum * workerGroupSize) {
+        if ((innerState.parameterServerRegistrationCount == parameterServerNumber)
+                && (innerState.workerLeadRegistrationCount == workerGroupNum)
+                && (innerState.workerRegistrationCount == workerGroupNum * workerGroupSize)) {
+
             log("All actors registered");
-            if (model.serverReady)
-                setState(State.INIT_WORKER_LEAD);
+            setState(State.INIT_PARAMETER_SERVER);
+            pushParameterThread.start();
         }
     }
 
-    /* Unused current now
+    /*
+     * Message Handler
+     */
     private void onReceiveInitParameterServer(Object msg) {
-        // If parameter server started, go into INIT_WORKER_LEAD state
+        if (msg instanceof ServerInitDone) {
+            setState(State.INIT_WORKER_LEAD);
+
+            for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
+                int startWorkerIndex = groupIndex*workerGroupSize;
+                ActorRef[] workers = Arrays.copyOfRange(this.workers, startWorkerIndex, startWorkerIndex + workerGroupSize);
+
+                log("Send worker group info to worker leads: " + groupIndex);
+                workerLeads[groupIndex].tell(new RegisterResponse(0, workerLeads[groupIndex], workers, parameterServers),
+                        getSelf());
+            }
+        }
+        else unhandled(msg);
+
+        //checkAllRegistered();
     }
-    */
 
     private void onReceiveInitWorkerLead(Object msg) {
         if (msg instanceof WorkerLeadActor.ReadyInfo) {
@@ -215,16 +250,16 @@ public class MonitorActor extends UntypedActor {
             log("Worker lead is ready: " + readyInfo.groupIndex);
 
             // now tell workers "register ok, you can checkin to leader now"
-            for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
-                int startWorkerIndex = groupIndex*workerGroupSize;
+            //for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
+                int startWorkerIndex = readyInfo.groupIndex * workerGroupSize;
                 ActorRef[] workers = Arrays.copyOfRange(this.workers, startWorkerIndex, startWorkerIndex + workerGroupSize);
 
-                log("Send worker group info to workers: " + groupIndex);
+                log("Send worker group info to workers: " + readyInfo.groupIndex);
                 for (int i = 0; i < workerGroupSize; i++) {
-                    RegisterResponse res = new RegisterResponse(i, workerLeads[groupIndex], workers, parameterServers);
+                    RegisterResponse res = new RegisterResponse(i, workerLeads[readyInfo.groupIndex], workers, parameterServers);
                     workers[i].tell(res, getSelf());
                 }
-            }
+            //}
 
         } else if (msg instanceof WorkerLeadActor.ReadyTrainingInfo) {
             WorkerLeadActor.ReadyTrainingInfo readyInfo = (WorkerLeadActor.ReadyTrainingInfo)msg;
@@ -234,6 +269,11 @@ public class MonitorActor extends UntypedActor {
             if (innerState.workerGroupInitCount == workerGroupNum) {
                 log("All worker groups ready");
                 setState(State.MONITOR_TRAINING);
+
+                for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
+                    log("Tell leader to start training: " + groupIndex);
+                    workerLeads[groupIndex].tell(new WorkerLeadActor.TrainingStart(), getSelf());
+                }
             }
         } else unhandled(msg);
     }
@@ -271,42 +311,11 @@ public class MonitorActor extends UntypedActor {
     }
 
     private void stateTransition(State old, State next) {
-        if (old == State.ACTOR_REGISTRATION && next == State.INIT_WORKER_LEAD)
-            stateTransitionActorRegistrationToInitWorkerLead();
-        else if (old == State.INIT_WORKER_LEAD && next == State.MONITOR_TRAINING)
-            stateTransitionInitWorkerLeadToMonitorTraining();
-        else if (old == State.MONITOR_TRAINING && next == State.DONE)
+        if (old == State.MONITOR_TRAINING && next == State.DONE)
             stateTransitionMonitorTrainingToDone();
 
         log("State Transition from " + old.toString() + " to " + next.toString());
         innerState.currentState = next;
-    }
-
-
-    /*
-     * State Transition Handler
-     */
-
-    private void stateTransitionActorRegistrationToInitWorkerLead() {
-        log("Init worker Leads");
-
-        for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
-            int startWorkerIndex = groupIndex*workerGroupSize;
-            ActorRef[] workers = Arrays.copyOfRange(this.workers, startWorkerIndex, startWorkerIndex + workerGroupSize);
-
-            log("Send worker group info to worker leads: " + groupIndex);
-            workerLeads[groupIndex].tell(new RegisterResponse(0, workerLeads[groupIndex], workers, parameterServers),
-                    getSelf());
-        }
-    }
-
-
-    private void stateTransitionInitWorkerLeadToMonitorTraining() {
-        log("Start training");
-        for (int groupIndex = 0; groupIndex < workerGroupNum; ++groupIndex) {
-            log("Tell leader to start training: " + groupIndex);
-            workerLeads[groupIndex].tell(new WorkerLeadActor.TrainingStart(), getSelf());
-        }
     }
 
     private void stateTransitionMonitorTrainingToDone() {
@@ -329,42 +338,6 @@ public class MonitorActor extends UntypedActor {
 
         getContext().stop(getSelf());
         log("Start stopping monitor");
-        /*
-        LinkedList<Future<Boolean>> stopFutures = new LinkedList<Future<Boolean>>();
-        Future<Iterable<Boolean>> stopFuture;
-        // Stop parameter servers
-        for (ActorRef parameterServer : parameterServers)
-            stopFutures.add(Patterns.gracefulStop(parameterServer, Constants.STOP_FUTURE_TIMEOUT_DURATION));
-        stopFuture = sequence(stopFutures, getContext().dispatcher());
-        try {
-            // Block here to wait for all parameters to stop
-            Await.result(stopFuture, Constants.STOP_FUTURE_TIMEOUT_DURATION);
-            log("All parameter servers stopped");
-        } catch (Exception e) { // Timeout
-            Logger.ErrorLog("******************** Timeout when stopping parameter servers ********************",
-                    Logger.Role.MONITOR, 0);
-        }
-
-        stopFutures.clear();
-        // Stop worker leads
-        for (ActorRef workerLead : workerLeads)
-            stopFutures.add(Patterns.gracefulStop(workerLead, Constants.STOP_FUTURE_TIMEOUT_DURATION));
-        // Stop workers
-        for (ActorRef worker : workers)
-            stopFutures.add(Patterns.gracefulStop(worker, Constants.STOP_FUTURE_TIMEOUT_DURATION));
-        Future<Iterable<Boolean>> stopFuture = sequence(stopFutures, getContext().dispatcher());
-        try {
-            // Block here to wait for all sub actor systems to stop
-            Await.result(stopFuture, Constants.STOP_FUTURE_TIMEOUT_DURATION);
-            log("All sub actor systems stopped");
-            // the sub actor systems have been stopped, stop itself.
-            log("Start stopping monitor");
-            getContext().stop(getSelf());
-        } catch (Exception e) { // Timeout
-            Logger.ErrorLog("******************** Timeout when stopping sub actor systems ********************",
-                    Logger.Role.MONITOR, 0);
-        }
-        */
     }
 
     private void stopActors(ActorRef[] actors) {

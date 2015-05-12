@@ -6,7 +6,7 @@ import java.util.Iterator;
 /**
  * Created by yunlong on 2/1/15.
  */
-public class KeyList implements KeyCollection {
+public class KeyList extends KeyCollection {
 
     public HashSet<Long> keys;
 

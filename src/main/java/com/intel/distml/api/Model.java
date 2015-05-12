@@ -20,8 +20,6 @@ public class Model implements Serializable {
     public static final String MATRIX_ERROR = "ERROR";
     public static final String MATRIX_DELTA = "DELTA";
 
-    //public int psNum, workerGroupSize;
-    public boolean serverReady;
     public boolean autoFetchParams;
     public boolean autoPushUpdates;
 
@@ -29,7 +27,6 @@ public class Model implements Serializable {
 
     public Model() {
 
-        serverReady = false;
         autoFetchParams = true;
         autoPushUpdates = true;
         dataMap = new HashMap<String, DMatrix>();

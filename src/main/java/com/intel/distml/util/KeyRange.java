@@ -5,7 +5,7 @@ import java.util.Iterator;
 /**
  * Created by yunlong on 12/11/14.
  */
-public class KeyRange implements KeyCollection {
+public class KeyRange extends KeyCollection {
 
     public static final KeyRange Single = new KeyRange(0, 0);
 
@@ -86,14 +86,6 @@ public class KeyRange implements KeyCollection {
     @Override
     public KeyCollection intersect(KeyCollection keys) {
 
-        if (keys.equals(KeyCollection.ALL)) {
-            return this;
-        }
-
-        if (keys.equals(KeyCollection.EMPTY)) {
-            return keys;
-        }
-
         if (keys instanceof  KeyRange) {
             KeyRange r = (KeyRange)keys;
             long min = Math.max(r.firstKey, firstKey);
@@ -105,15 +97,8 @@ public class KeyRange implements KeyCollection {
 
             return  new KeyRange(min, max);
         }
-        else if (keys instanceof KeyList) {
-            return ((KeyList)keys).intersect(this);
-        }
 
-        //todo support non-range keys
-//        else if (keys instanceof KeyHash) {
-//
-//        }
-        throw new RuntimeException("Not supported.");
+        return super.intersect(keys);
     }
 
     public boolean mergeFrom(KeyRange keys) {

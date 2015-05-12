@@ -5,7 +5,7 @@ import java.util.Iterator;
 /**
  * Created by yunlong on 12/11/14.
  */
-public class KeyHash implements KeyCollection {
+public class KeyHash extends KeyCollection {
 
     public int hashQuato;
     public int hashIndex;
@@ -26,16 +26,7 @@ public class KeyHash implements KeyCollection {
         KeyHash o = (KeyHash)obj;
         return (hashQuato == o.hashQuato) && (hashIndex == o.hashIndex) && (totalKeyNum == o.totalKeyNum);
     }
-/*
-    public PartitionInfo partitionEqually(int hostNum) {
-        throw new UnsupportedOperationException("This method is not supported.");
-    }
 
-    @Override
-    public KeyCollection[] split(int hostNum) {
-        throw new UnsupportedOperationException("This method is not supported.");
-    }
-*/
     public long size() {
         return (totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0);
     }

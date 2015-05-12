@@ -1,5 +1,7 @@
 package com.intel.distml.util;
 
+import org.apache.hadoop.util.hash.Hash;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -64,6 +66,21 @@ public class GeneralArray<T> extends Matrix {
         }
     }
 
+    public void setElement(long key, T value) {
+        if (rowKeys instanceof KeyRange) {
+            int index = (int) (key - ((KeyRange)rowKeys).firstKey);
+            values[index] = value;
+        }
+        else if (rowKeys instanceof KeyHash) {
+            rowKeys.contains(key);
+            int index = (int) (key / ((KeyHash)rowKeys).hashQuato);
+            values[index] = value;
+        }
+        else {
+            throw new RuntimeException("not supported keys.");
+        }
+    }
+
     public KeyCollection getRowKeys() {
         return rowKeys;
     }
@@ -104,7 +121,7 @@ public class GeneralArray<T> extends Matrix {
             return this;
         }
 
-        if (rows instanceof KeyList) {
+        if (!(rows instanceof KeyRange)) {
             HashMapMatrix<T> output = new HashMapMatrix<T>();
             Iterator<Long> it = rows.iterator();
             while(it.hasNext()) {
@@ -116,26 +133,19 @@ public class GeneralArray<T> extends Matrix {
             return output;
         }
 
-        KeyCollection _rows = rowKeys.intersect(rows);
+        KeyRange _rows = (KeyRange)rowKeys.intersect(rows);
+        T[] _v = (T[]) Array.newInstance(values[0].getClass(), (int) _rows.size());
+        GeneralArray<T> result = (GeneralArray<T>) createEmptySubMatrix();
+        result.values = _v;
+        result.rowKeys = _rows;
 
-            System.out.println("class type: " + getClass() + ", " + values[0].getClass());
+        Iterator<Long> it = _rows.iterator();
+        while(it.hasNext()) {
+            int key = it.next().intValue();
+            result.setElement(key, element(key));
+        }
 
-            T[] _v = (T[]) Array.newInstance(values[0].getClass(), (int)_rows.size());
-            Iterator<Long> it = _rows.iterator();
-            int index = 0;
-            while(it.hasNext()) {
-                int key = it.next().intValue();
-                _v[index] = element(key);
-                index++;
-            }
-            System.out.println("obj: " + _v.getClass() + ", " + _v[0]);
-
-
-            GeneralArray<T> result = (GeneralArray<T>) createEmptySubMatrix();
-            result.values = _v;
-            result.rowKeys = _rows;
-            return result;
-
+        return result;
     }
 
     @Override
@@ -165,17 +175,22 @@ public class GeneralArray<T> extends Matrix {
 
     @Override
     public boolean mergeMatrix(Matrix _m) {
+
+        if (_m instanceof HashMapMatrix) {
+            return mergeHashMapMatrix((HashMapMatrix)_m);
+        }
+
         if (!(_m instanceof GeneralArray)) {
-            throw new UnsupportedOperationException("Only support to merge from same class Matrix1D.");
+            throw new UnsupportedOperationException("Only support to merge from same class Matrix1D: " + _m);
         }
 
         GeneralArray m = (GeneralArray) _m;
 
         if (!(rowKeys instanceof KeyRange)) {
-            throw new UnsupportedOperationException("Only support to merge with key range.");
+            throw new UnsupportedOperationException("Only support to merge with key range: " + rowKeys);
         }
         if (!(m.rowKeys instanceof KeyRange)) {
-            throw new UnsupportedOperationException("Only support to merge with key range.");
+            throw new UnsupportedOperationException("Only support to merge with key range: " + m.rowKeys);
         }
 
         KeyRange keys1 = (KeyRange) rowKeys;
@@ -220,6 +235,18 @@ public class GeneralArray<T> extends Matrix {
         ((KeyRange) rowKeys).firstKey = newFirst;
         ((KeyRange) rowKeys).lastKey = newLast;
         //System.out.println("merge done: " + newFirst + ", " + newLast + ", " + values[0] + ", " + values[(int)newLast-1]);
+
+        return true;
+    }
+
+    public boolean mergeHashMapMatrix(HashMapMatrix<T> _m) {
+
+        Iterator<Long> it = _m.getRowKeys().iterator();
+        while(it.hasNext()) {
+            long key = it.next();
+            T value = _m.get(key);
+            setElement(key, value);
+        }
 
         return true;
     }

@@ -2,7 +2,7 @@ package com.intel.distml.app.word2vec
 
 import com.intel.distml.api.Model
 import com.intel.distml.api.BigModelWriter
-import com.intel.distml.model.word2vec.Word2VecModel
+import com.intel.distml.model.word2vec.{Word2VecModelWriter, Word2VecModel}
 import com.intel.distml.util.GeneralArray
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
@@ -90,10 +90,10 @@ object EngWords {
     var wordTree = Word2VecModel.createBinaryTree(lineCount.toLong, countedWords)
 
 //    val config = new TrainingConf().psCount(2).groupCount(6).miniBatchSize(1000)
-    val config = new TrainingConf().miniBatchSize(1000).psCount(2).groupCount(12)
+    val config = new TrainingConf().miniBatchSize(1000).psCount(2).groupCount(12).iteration(2)
     val model = new Word2VecModel(wordTree, wordMap, 200)
 
-    TrainingHelper.startTraining(spark, model, rawLines, config, new BigModelWriter(10240))
+    TrainingHelper.startTraining(spark, model, rawLines, config, new Word2VecModelWriter(10240))
     val w2vApi = Word2VecModel.getWord2VecMap(model)
     val synonyms = w2vApi.findSynonyms("man", 20)
 

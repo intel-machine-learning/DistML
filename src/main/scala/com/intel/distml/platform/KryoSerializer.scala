@@ -142,15 +142,15 @@ class KryoBasedSerializer(val kryo: Kryo, val bufferSize: Int, val maxBufferSize
 
   // "toBinary" serializes the given object to an Array of Bytes
   def toBinary(obj: AnyRef): Array[Byte] = {
-    println("toBinary begin: " + obj + ", " + new java.util.Date() + ", " + Thread.currentThread().getId)
+    //println("toBinary begin: " + obj + ", " + new java.util.Date() + ", " + Thread.currentThread().getId)
     val buffer = getBuffer
     var arr: Array[Byte] = null
     try {
-      println("ser begin: " + new java.util.Date());
+      //println("ser begin: " + new java.util.Date());
       kryo.writeClassAndObject(buffer, obj)
 
       arr = buffer.toBytes()
-      println("ser done: " + new java.util.Date() + ", " + arr.length);
+      //println("ser done: " + new java.util.Date() + ", " + arr.length);
     }
     catch {
       case e: Exception => e.printStackTrace()
@@ -158,15 +158,15 @@ class KryoBasedSerializer(val kryo: Kryo, val bufferSize: Int, val maxBufferSize
     finally
       releaseBuffer(buffer)
 
-    println("toBinary done: " + new java.util.Date() + ", " + Thread.currentThread().getId)
+    //println("toBinary done: " + new java.util.Date() + ", " + Thread.currentThread().getId)
     arr
   }
 
   def fromBinary(bytes: Array[Byte], clazz: Option[Class[_]]): AnyRef = {
-    println("fromBinary begin: " + new java.util.Date() + ", " + Thread.currentThread().getId)
+    //println("fromBinary begin: " + new java.util.Date() + ", " + Thread.currentThread().getId)
     try {
       val obj = kryo.readClassAndObject(new Input(bytes))
-      println("fromBinary end: " + obj + ", " + new java.util.Date() + ", " + Thread.currentThread().getId)
+      //println("fromBinary end: " + obj + ", " + new java.util.Date() + ", " + Thread.currentThread().getId)
       return obj
     }
     catch {

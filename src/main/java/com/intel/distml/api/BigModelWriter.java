@@ -14,7 +14,7 @@ public class BigModelWriter implements ModelWriter {
 
     private static final int MAX_FETCH_SIZE = 10240000;   // 10M
 
-    private int maxFetchRows;
+    protected int maxFetchRows;
 
     public BigModelWriter(int estimatedRowSize) {
         maxFetchRows = 10240000 / estimatedRowSize;
