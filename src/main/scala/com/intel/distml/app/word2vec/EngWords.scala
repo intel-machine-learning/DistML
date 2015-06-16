@@ -46,8 +46,8 @@ object EngWords {
     var sparkHome = args(1)
     var sparkMem = args(2)
     var appJars = args(3)
-    val trainingFile = "hdfs://dl-s1:9000/data/text/eng_news_256m"
-    val outputFolder = "hdfs://dl-s3:9000/user/yunlong/word2vec"
+    val trainingFile ="/media/lq/Data/backup/eng_news_2010_1M-co_n.txt"// "hdfs://dl-s1:9000/data/text/eng_news_256m"
+    val outputFolder = "/media/lq/Data/backup/"//hdfs://dl-s3:9000/user/yunlong/word2vec"
     //      val trainingFile = "file:/home/harry/workspace/scaml/novel.txt"
 
     System.setProperty("spark.driver.maxResultSize", "1g");

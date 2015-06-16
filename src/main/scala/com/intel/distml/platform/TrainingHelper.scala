@@ -46,17 +46,16 @@ object TrainingHelper  {
       |akka.log-dead-letters=off
       |akka.remote.netty.tcp.maximum-frame-size=500000000
       |akka.remote.transport-failure-detector.acceptable-heartbeat-pause=240s
-      |akka.extensions=["com.intel.distml.platform.KryoSerializerExt"]
-      |akka.actor.serializers.kryo="com.intel.distml.platform.KryoSerializer"
-      |akka.actor.kryo {
-      | // implicit-registration-logging=true
-      | // kryo-trace=true
-      |}
-      |akka.actor.serialization-bindings {
-      | "com.intel.distml.transport.DataBusProtocol$ScamlMessage"=kryo
-      |}
     """.stripMargin
-
+/*akka.extensions=["com.intel.distml.platform.KryoSerializerExt"]
+  akka.actor.serializers.kryo="com.intel.distml.platform.KryoSerializer"
+  akka.actor.kryo {
+    // implicit-registration-logging=true
+    // kryo-trace=true
+  }
+  akka.actor.serialization-bindings {
+    "com.intel.distml.transport.DataBusProtocol$ScamlMessage"=kryo
+  }*/
   def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingConf): Unit = {
 
     startTraining(spark, model, samples, config, new DefaultModelWriter());
