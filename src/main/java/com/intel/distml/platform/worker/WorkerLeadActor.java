@@ -296,7 +296,7 @@ public class WorkerLeadActor extends UntypedActor {
     }
 	
 	/*
-	 * Message Handler
+	 * Message Echo_server
 	 */
     private void onReceiveAfterCreated(Object msg) {
         if (msg instanceof MonitorActor.RegisterResponse) {

@@ -153,7 +153,7 @@ public class MonitorActor extends UntypedActor {
     }
 
     /*
-	 * Message Handler
+	 * Message Echo_server
 	 */
     private void onReceiveActorRegistration(Object msg) {
         if (msg instanceof WorkerLeadActor.RegisterLead) {
@@ -284,7 +284,7 @@ public class MonitorActor extends UntypedActor {
 
 
     /*
-     * State Transition Handler
+     * State Transition Echo_server
      */
 
     private void stateTransitionActorRegistrationToInitWorkerLead() {

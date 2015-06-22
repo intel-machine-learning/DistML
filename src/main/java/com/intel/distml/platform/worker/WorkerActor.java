@@ -240,7 +240,7 @@ public class WorkerActor<T> extends UntypedActor {
     }
 
     /*
-     * Message Handler
+     * Message Echo_server
      */
     private void onReceiveAfterCreated(Object msg) {
         if (msg instanceof MonitorActor.RegisterResponse) {
@@ -284,7 +284,7 @@ public class WorkerActor<T> extends UntypedActor {
     }
 
     /*
-     * Message Handler
+     * Message Echo_server
      */
     private void onReceiveAfterRegistered(Object msg) {
         if (msg instanceof WorkerLeadActor.CheckInResponse) {
