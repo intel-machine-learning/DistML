@@ -8,9 +8,11 @@ import akka.actor.UntypedActor;
 import akka.io.Tcp;
 import akka.io.Tcp.ConnectionClosed;
 import akka.io.Tcp.Received;
+import akka.io.Tcp.Write;
 import akka.io.TcpMessage;
 import akka.util.ByteString;
 import akka.util.ByteStringBuilder;
+import io.netty.buffer.ByteBuf;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -39,13 +41,23 @@ public class Echo_server extends UntypedActor {
             getContext().stop(getSelf());
         }
         else if (msg instanceof Tcp.Write)  {
-            ByteBuffer msg2 = (ByteBuffer) msg;
-            msg2.flip();
-            byte[] data = new byte[msg2.remaining()];
-            ByteStringBuilder bsb = new ByteStringBuilder();
-            bsb.putBytes(data);
-            //final ByteString data = ((Received) msg2).data();
-            getSender().tell(TcpMessage.write(bsb.result()), getSelf());
+            System.out.println(msg);
+//            ByteBuffer msg2 = (ByteBuffer) msg.data();
+//            msg2.flip();
+//            byte[] data = new byte[msg2.remaining()];
+//            ByteStringBuilder bsb = new ByteStringBuilder();
+//            bsb.putBytes(data);
+//            //final ByteString data = ((Received) msg2).data();
+//            getSender().tell(TcpMessage.write(bsb.result()), getSelf());
+        }
+        else{
+            ByteBuf result = (ByteBuf) msg;
+            byte[] result1 = new byte[result.readableBytes()];
+            // msg中存储的是ByteBuf类型的数据，把数据读取到byte[]中
+            result.readBytes(result1);
+            String resultStr = new String(result1);
+            // 接收并打印客户端的信息
+            System.out.println("Client said:" + resultStr);
         }
     }
 
