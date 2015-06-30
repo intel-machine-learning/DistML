@@ -10,6 +10,7 @@ import akka.io.Tcp.ConnectionClosed;
 import akka.io.Tcp.Received;
 import akka.io.Tcp.Write;
 import akka.io.TcpMessage;
+import akka.util.ByteIterator;
 import akka.util.ByteString;
 import akka.util.ByteStringBuilder;
 import io.netty.buffer.ByteBuf;
@@ -40,8 +41,25 @@ public class Echo_server extends UntypedActor {
         else if (msg instanceof ConnectionClosed) {
             getContext().stop(getSelf());
         }
+        else if (msg instanceof ByteString) {
+            System.out.println("Message received by akka");
+            ByteBuf result = (ByteBuf) msg;
+            byte[] result1 = new byte[result.readableBytes()];
+            // msg中存储的是ByteBuf类型的数据，把数据读取到byte[]中
+            result.readBytes(result1);
+            String resultStr = new String(result1);
+            System.out.println("Client said:" + resultStr);
+        }
         else if (msg instanceof Tcp.Write)  {
-            System.out.println(msg);
+            Tcp.Write tmp = (Tcp.Write) msg;
+            final ByteString s = tmp.data();
+            ByteIterator it = s.iterator();
+            byte[] a = new byte[s.length()];
+            it.getBytes(a);
+            String ss = new String(a);
+            System.out.println(ss);
+            getSender().tell(TcpMessage.write(s), getSelf());
+
 //            ByteBuffer msg2 = (ByteBuffer) msg.data();
 //            msg2.flip();
 //            byte[] data = new byte[msg2.remaining()];
@@ -56,7 +74,6 @@ public class Echo_server extends UntypedActor {
             // msg中存储的是ByteBuf类型的数据，把数据读取到byte[]中
             result.readBytes(result1);
             String resultStr = new String(result1);
-            // 接收并打印客户端的信息
             System.out.println("Client said:" + resultStr);
         }
     }
