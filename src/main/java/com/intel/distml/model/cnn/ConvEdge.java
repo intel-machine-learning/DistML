@@ -24,7 +24,7 @@ public class ConvEdge extends Edge {
 
         ImagesData images = (ImagesData) network.sample;
         if (srcLayer != null) {
-            images = (ImagesData) databus.fetchFromWorker(srcLayer.getGlobalName(Model.MATRIX_DATA));
+            images = (ImagesData) srcLayer.getCache(Model.MATRIX_DATA);
         }
 
 
@@ -32,7 +32,6 @@ public class ConvEdge extends Edge {
 
         kernels.conv(images, output);
         output.sigmoid();
-//        System.out.println("output in:"+dstLayer.index);output.show();
     }
 
     /**
@@ -41,16 +40,13 @@ public class ConvEdge extends Edge {
      */
     @Override
     public void computeBackward(NeuralNetwork network, int workerIndex, DataBus databus) {
-        //dstLayer's update and srcLayer's loss
-//        System.out.println("======================Convolution backward in Layer:"+dstLayer.index+"=================");
+
         ImagesData srcData = (ImagesData)srcLayer.getCache(Model.MATRIX_DATA);
         ConvKernels update =(ConvKernels) dstLayer.getCache(Model.MATRIX_UPDATE);
         ConvKernels param =(ConvKernels) dstLayer.getCache(Model.MATRIX_PARAM);
         ImagesData delta = (ImagesData)dstLayer.getCache(Model.MATRIX_DELTA);
         ConvKernels tmpUpdate=new ConvKernels(update.kernalWidth,update.kernalHeight,update.inputCount, (KeyRange)update.rowKeys);
 
-        //compute dstLayer's update
-        // dstLayer.update = dstError*srcData
         computeDstUpdate(srcData,delta,tmpUpdate);
         if(srcLayer.index==0){
             accumulateUpdate(tmpUpdate,update);
@@ -59,8 +55,7 @@ public class ConvEdge extends Edge {
             return;
         }
         ImagesData srcDelta=(ImagesData)srcLayer.getCache(Model.MATRIX_DELTA);
-        //compute srcLayer's delta
-        // srcLayer.delta = dstDelta*kernels
+
         computeSrcDelta(delta, param, srcDelta);
 
         accumulateUpdate(tmpUpdate,update);

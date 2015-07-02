@@ -67,16 +67,12 @@ NeuralNetwork Models
 
 DataBus
 -----------------
->ServerDataBus
+*  ServerDataBus
   Before training or in training, workers need to fetch parameters from servers, as a result, workers need to push parameter updates or updated parameters back to the servers. In DistML, this work can be easily done by ¡°DataBus¡±. In most cases, only ¡°ServerDataBus¡± is needed for parameter fetching and pushing. ServerDataBus provides following interfaces:
   Matrix fetchFromServer(String matrixName, KeyCollection rows, KeyCollection cols);
   void pushUpdates(String matrixName, Matrix update
 
->DataBus
-  For special cases, you may need to exchange data between workers, we put these workers in a group, and partition specified matrix inside of the group, then you can retrieve data via class ¡°DataBus¡±:
-  Matrix fetchFromWorker(String matrixName, KeyCollection rows, KeyCollection cols);
-
->MonitorDataBus
+*  MonitorDataBus
   In most cases, there are some global variables, such as learning rate, global loss value, you can store it in parameter servers, but a better way is to store in monitor, and broadcast to all workers if needed, for example, you can update learning rate in function Model.progress, then broadcast it to all workers.
   void	broadcast(String name, Object value) 
   

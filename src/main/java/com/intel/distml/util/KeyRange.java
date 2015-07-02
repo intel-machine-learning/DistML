@@ -46,7 +46,7 @@ public class KeyRange extends KeyCollection {
         KeyCollection[] sets = new KeyHash[hostNum];
 
         for (int i = 0; i < hostNum; i++) {
-            sets[i] = new KeyHash(hostNum, i, lastKey+1);
+            sets[i] = new KeyHash(hostNum, i, firstKey, lastKey);
         }
 
         return sets;
@@ -96,6 +96,11 @@ public class KeyRange extends KeyCollection {
             }
 
             return  new KeyRange(min, max);
+        }
+
+        if (keys instanceof KeyHash) {
+            // warning: hope KeyHash don't call back
+            return keys.intersect(this);
         }
 
         return super.intersect(keys);

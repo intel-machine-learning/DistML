@@ -19,33 +19,28 @@ public class PoolEdge extends Edge {
     @Override
     public void computeForward(NeuralNetwork network, int workerIndex, DataBus dataBus) {
 
-//        System.out.println("====================PoolLayer forward in Layer:" + dstLayer.index + "====================");
-
-        ImagesData images = (ImagesData) dataBus.fetchFromWorker(srcLayer.getGlobalName(Model.MATRIX_DATA));
+        ImagesData images = (ImagesData) srcLayer.getCache(Model.MATRIX_DATA);
         ImagesData output = (ImagesData) dstLayer.getMatrix(Model.MATRIX_DATA).localCache;
 
 
         ConvAndDownSample(images, output, ((PoolLayer)dstLayer).scale);
-//        System.out.println("output in:"+dstLayer.index);output.show();
     }
 
     @Override
     public void computeBackward(NeuralNetwork network, int workerIndex, DataBus dataBus) {
-//        //only one thing:the srcLayer's error;sample layer(dstLayer) is not need to compute error and update
-//        System.out.println("=============Pooling Backward in Layer:"+dstLayer.index+";And WorkerIndex:"+workerIndex+"======================");
+
         ImagesData srcData=(ImagesData)srcLayer.getCache(Model.MATRIX_DATA);
         ImagesData dstDelta= (ImagesData)dstLayer.getCache(Model.MATRIX_DELTA);
         ImagesData srcDelta=(ImagesData)srcLayer.getCache(Model.MATRIX_DELTA);
-        //expend dstLayer's error
+
         float[][][] dstExpendDelta=new float[dstDelta.imageNum][dstDelta.imageHeight*2][dstDelta.imageWidth*2];//TODO:replace magic number
         KroneckerProduct(dstDelta.values,dstExpendDelta,2);
-        //compute srcLayer's error
-        //src.delta=src.data*(1-src.data)*dstExpendDelta
+
         computeSrcDelta(dstExpendDelta,srcData.values,srcDelta.values);
 
 
     }
-//Helper Functions
+
     public void KroneckerProduct(float[][][] input,float[][][] output,int scale){
         for(int i=0;i<output.length;i++)
             for(int j=0;j<output[0].length;j++)

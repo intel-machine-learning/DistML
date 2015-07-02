@@ -23,7 +23,7 @@ public class FullConnectionEdge extends Edge {
 
         FullConnectionMatrix matrix = (FullConnectionMatrix) dstLayer.getCache(Model.MATRIX_PARAM);
 
-        ImagesData images = (ImagesData) databus.fetchFromWorker(srcLayer.getGlobalName(Model.MATRIX_DATA));
+        ImagesData images = (ImagesData) srcLayer.getCache(Model.MATRIX_DATA);
 
         GeneralArray<Float> vector = (GeneralArray<Float>) dstLayer.getCache(Model.MATRIX_DATA);
 
@@ -37,8 +37,6 @@ public class FullConnectionEdge extends Edge {
      */
     @Override
     public void computeBackward(NeuralNetwork network, int workerIndex, DataBus databus) {
-        //dstLayer's update and srcLayer's loss
-//        System.out.println("======================Full-Connection backward in Layer:" + dstLayer.index + "=================");
 
         FullConnectionMatrix weights = (FullConnectionMatrix) dstLayer.getCache(Model.MATRIX_PARAM);
 
@@ -87,28 +85,14 @@ public class FullConnectionEdge extends Edge {
         float[][] tmpUpdate=new float[updates.values.length][updates.values[0].length];
         computeDstUpdate(delta,sd,tmpUpdate);
 
-        //calculate srcLayer's delta
-        //src.delta=dst.delta*dst.param
         computeSrcDelta(delta,weights,srcDelta);
 
         accumulateUpdate(tmpUpdate,updates.values);
         changeWeight(tmpUpdate,weights.values);
 
     }
-    //Helper Functions
-//    public void computeDstUpdate(Matrix1D<Float> delta,ImagesData srcData,FullConnectionMatrix updates,FullConnectionMatrix weights){
-//        for(int i=0;i<updates.values.length;i++)
-//            for (int j=0;j<updates.values[0].length-1;j++){
-//                updates.values[i][j]+= MNISTModel.eta*delta.values[i]*srcData.values[j/16][j%16/4][j%16%4];//plus the previous one
-//                weights.values[i][j]-= MNISTModel.eta*delta.values[i]*srcData.values[j/16][j%16/4][j%16%4];
-//            }
-//
-//        for(int i=0;i<updates.values.length;i++) {
-//            updates.values[i][updates.values[0].length - 1] += delta.values[i];
-//            weights.values[i][weights.values[0].length - 1] -= delta.values[i];
-//        }
-//        //updates.show();
-//    }
+
+
     public void computeDstUpdate(GeneralArray<Float> delta,ImagesData srcData,float[][] update){
         for(int i=0;i<update.length;i++)
             for (int j=0;j<update[0].length-1;j++){

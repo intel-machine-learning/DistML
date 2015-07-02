@@ -9,12 +9,31 @@ public class KeyHash extends KeyCollection {
 
     public int hashQuato;
     public int hashIndex;
-    public long totalKeyNum;
+
+    public long minKey;
+    public long maxKey;
+    //public long totalKeyNum;
+
+    private long first, last;
 
     public KeyHash(int hashQuato, int hashIndex, long totalKeyNum) {
+        this(hashQuato, hashIndex, 0L, totalKeyNum - 1);
+    }
+
+    public KeyHash(int hashQuato, int hashIndex, long minKey, long maxKey) {
         this.hashQuato = hashQuato;
         this.hashIndex = hashIndex;
-        this.totalKeyNum = totalKeyNum;
+        this.minKey = minKey;
+        this.maxKey = maxKey;
+
+        first = minKey - minKey%hashQuato + hashIndex;
+        if (first < minKey) {
+            first += hashQuato;
+        }
+        last = maxKey - maxKey%hashQuato + hashIndex;
+        if (last > maxKey) {
+            last -= hashQuato;
+        }
     }
 
     @Override
@@ -24,20 +43,22 @@ public class KeyHash extends KeyCollection {
         }
 
         KeyHash o = (KeyHash)obj;
-        return (hashQuato == o.hashQuato) && (hashIndex == o.hashIndex) && (totalKeyNum == o.totalKeyNum);
+        return (hashQuato == o.hashQuato) && (hashIndex == o.hashIndex) && (minKey == o.minKey) && (maxKey == o.maxKey);
     }
 
     public long size() {
-        return (totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0);
+        return (last - first) / hashQuato + 1;
+        //return (totalKeyNum /hashQuato) + (((totalKeyNum % hashQuato) > hashIndex)? 1 : 0);
     }
 
     @Override
     public boolean contains(long key) {
-        if ((key >= totalKeyNum) || (key < 0)) {
-            throw new RuntimeException("unexpected key: " + key + " >= " + totalKeyNum);
+        if ((key > last) || (key < first)) {
+            //throw new RuntimeException("unexpected key: " + key + " >= " + totalKeyNum);
+            return false;
         }
 
-        //System.out.println("check contains: " + key + ", quato=" + hashQuato + ", index=" + hashIndex + ", total=" + totalKeyNum);
+        //System.out.println("check contains: " + key);
         return key % hashQuato == hashIndex;
     }
 
@@ -46,22 +67,10 @@ public class KeyHash extends KeyCollection {
         return size() == 0;
     }
 
-//    public boolean containsAll(KeyCollection keys) {
-//        KeyHash keyRange = (KeyHash)keys;
-//        return (keyRange.totalKeyNum >= firstKey && keyRange.firstKey <= totalKeyNum);
-//    }
-
     @Override
     public String toString() {
-        return "[KeyHash: " + hashQuato + ", " + hashIndex + ", " + totalKeyNum + "]";
+        return "[KeyHash: quato=" + hashQuato + ", index=" + hashIndex + ", min=" + minKey + ", max=" + maxKey + "]";
     }
-
-//    public KeyHash FetchSame(KeyHash kr) {
-//        long NewFirst = kr.firstKey > this.firstKey ? kr.firstKey : this.firstKey;
-//        long NewLast = kr.totalKeyNum < this.totalKeyNum ? kr.totalKeyNum : this.totalKeyNum;
-//        if (NewFirst > NewLast) return null;
-//        return new KeyHash(NewFirst, NewLast);
-//    }
 
     @Override
     public KeyCollection intersect(KeyCollection keys) {
@@ -72,6 +81,16 @@ public class KeyHash extends KeyCollection {
 
         if (keys.equals(KeyCollection.EMPTY)) {
             return keys;
+        }
+
+        if (keys instanceof KeyRange) {
+            KeyRange r = (KeyRange) keys;
+            if ((r.firstKey <= first) && (r.lastKey >= last)) {
+                return this;
+            }
+
+            KeyHash newKeys = new KeyHash(hashQuato, hashIndex, Math.max(minKey, r.firstKey), Math.min(maxKey, r.lastKey));
+            return newKeys;
         }
 
         KeyList list = new KeyList();
@@ -87,7 +106,6 @@ public class KeyHash extends KeyCollection {
             return KeyCollection.EMPTY;
         }
 
-        //System.out.println("intersect: " + this.hashQuato + ", " + this.hashIndex + ", " + keys.size() + ", result=" + list.size());
         return list;
     }
 
@@ -104,12 +122,12 @@ public class KeyHash extends KeyCollection {
 
         public _Iterator(KeyHash keys) {
             this.keys = keys;
-            this.currentKey = keys.hashIndex;
+            this.currentKey = keys.first;
         }
 
         @Override
         public boolean hasNext() {
-            return currentKey < keys.totalKeyNum;
+            return currentKey <= keys.last;
         }
 
         @Override

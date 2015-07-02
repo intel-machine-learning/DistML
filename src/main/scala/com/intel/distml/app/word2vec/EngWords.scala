@@ -49,8 +49,7 @@ object EngWords {
     var sparkMem = args(2)
     var appJars = args(3)
     val trainingFile = "hdfs://dl-s1:9000/data/text/eng_news_256m"
-    val outputFolder = "hdfs://dl-s1:9000/user/yunlong/word2vec"
-    //      val trainingFile = "file:/home/harry/workspace/scaml/novel.txt"
+    val outputFolder = "hdfs://dl-s1:9000/user/yunlong"
 
     System.setProperty("spark.driver.maxResultSize", "1g");
     val conf = new SparkConf()
@@ -72,7 +71,7 @@ object EngWords {
     //else
     //lines = rawLines.persist(StorageLevel.MEMORY_AND_DISK)
 
-    val words = lines.flatMap(line => line.split(" ")).filter(s => s.length > 0).map((_, 1L))
+    val words = lines.flatMap(line => line.split("[ |]")).filter(s => s.length > 0).map((_, 1L))
     val lineCount = lines.count()
     println("lineCount=" + lineCount + ", wordCound=" + words.count())
 
@@ -90,12 +89,12 @@ object EngWords {
     var wordTree = Word2VecModel.createBinaryTree(lineCount.toLong, countedWords)
 
 //    val config = new TrainingConf().psCount(2).groupCount(6).miniBatchSize(1000)
-    val config = new TrainingConf().miniBatchSize(1000).psCount(2).groupCount(12).iteration(2)
+    val config = new TrainingConf().miniBatchSize(100).psCount(4)
     val model = new Word2VecModel(wordTree, wordMap, 200)
 
     TrainingHelper.startTraining(spark, model, rawLines, config, new Word2VecModelWriter(10240))
     val w2vApi = Word2VecModel.getWord2VecMap(model)
-    val synonyms = w2vApi.findSynonyms("man", 20)
+    val synonyms = w2vApi.findSynonyms("black", 20)
 
     for((synonym, cosineSimilarity) <- synonyms) {
       println(s"$synonym $cosineSimilarity")

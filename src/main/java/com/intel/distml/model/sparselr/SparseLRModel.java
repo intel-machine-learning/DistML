@@ -81,7 +81,7 @@ public class SparseLRModel extends Model {
 
         DMatrix params = getMatrix(Model.MATRIX_PARAM);
             SparseWeights weights = (SparseWeights) params.localCache;
-        log("train on samples: " + samples.values.length + ", " + weights.getRowKeys().size());
+        //log("train on samples: " + samples.values.length + ", " + weights.getRowKeys().size());
 
             for (int i = 0; i < samples.values.length; i++) {
                 LRSample sample = samples.values[i];

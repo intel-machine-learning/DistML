@@ -72,20 +72,6 @@ dim : Int) extends Model {
     override def initOnWorker(psIndex: Int, keys: KeyCollection) {
     }
 
-//    def autoPartition(psCount : Int): Unit = {
-//      serverPartitions = new PartitionInfo(PartitionInfo.Type.PARTITIONED);
-//
-//      val partSize = (dim + psCount -1) / psCount
-//      for (i <- 0 to psCount-1) {
-//        var first = partSize * i
-//        var last = first + partSize - 1
-//        if (last >= dim) {
-//          last = dim - 1;
-//        }
-//        var p = new Partition(new KeyRange(first, last));
-//        serverPartitions.addPartition(p)
-//      }
-//    }
   }
 
   @transient var expTable: Array[Float] = null;
@@ -100,7 +86,6 @@ dim : Int) extends Model {
     var updates = new UpdateMatrix(wordTree.vocabSize);
     updates.setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH)
     registerMatrix(Model.MATRIX_UPDATE, updates)
-
   }
 
   override def transformSamples (samples: java.util.List[AnyRef]) : Matrix = {
@@ -199,7 +184,7 @@ dim : Int) extends Model {
       init
 
     var sentences = s.asInstanceOf[Blob[util.LinkedList[String]]].element()
-    //println("sentences: " + sentences);
+    println("sentence lines: " + sentences.size());
     val keyList = prefetch(sentences, wordTree, wordMap);
 
     log("prefetch: " + keyList.size())
@@ -360,7 +345,7 @@ dim : Int) extends Model {
 
 object Word2VecModel {
 
-  val minFreq = 5;
+  val minFreq = 50;
 
   val windowSize = 7
   val vectorSize = 200
@@ -566,6 +551,7 @@ class Word2VecModelWriter(estimatedRowSize : Int) extends BigModelWriter(estimat
       val range: KeyRange = new KeyRange(start, end)
       System.out.println("fetch param: " + range)
       val result: Matrix = dataBus.fetchFromServer(Model.MATRIX_PARAM, range)
+
       nodeData.mergeMatrix(result);
       System.out.println("fetch done: " + result.getRowKeys.size())
       start = end + 1

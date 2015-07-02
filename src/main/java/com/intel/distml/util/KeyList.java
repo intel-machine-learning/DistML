@@ -51,14 +51,15 @@ public class KeyList extends KeyCollection {
     public Iterator<Long> iterator() {
         return keys.iterator();
     }
-/*
-    public PartitionInfo partitionEqually(int hostNum) {
-        throw new UnsupportedOperationException("This method is not supported.");
-    }
 
     @Override
-    public KeyCollection[] split(int hostNum) {
-        throw new UnsupportedOperationException("This method is not supported.");
+    public String toString() {
+        String s =  "[KeyList: size=" + keys.size();
+        if (keys.size() > 0) {
+            s += " first=" + keys.iterator().next();
+        }
+        s += "]";
+
+        return s;
     }
-*/
 }

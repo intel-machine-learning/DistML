@@ -1,0 +1,6 @@
+
+
+[2015-07-01]
+1. removed feature of worker group to reduce code complexity, a new branch "workergrou" is created
+2. use akka-io for data transport, which allows big data block transferring
+3. start parameter servers in a separated thread, allows iterative training without resparting parameter servers

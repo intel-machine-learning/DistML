@@ -10,13 +10,13 @@ import com.intel.distml.util.Matrix;
 /**
  * Created by yunlong on 4/29/15.
  */
-public class BigModelWriter implements ModelWriter {
+public class DummyModelWriter implements ModelWriter {
 
     private static final int MAX_FETCH_SIZE = 2048000000;   // 2g
 
     protected int maxFetchRows;
 
-    public BigModelWriter(int estimatedRowSize) {
+    public DummyModelWriter(int estimatedRowSize) {
         maxFetchRows = MAX_FETCH_SIZE / estimatedRowSize;
     }
 
@@ -25,6 +25,8 @@ public class BigModelWriter implements ModelWriter {
 
         for (String matrixName : model.dataMap.keySet()) {
             DMatrix m = model.dataMap.get (matrixName);
+            long paramCount = 0L;
+
             if (m.hasFlag(DMatrix.FLAG_PARAM)) {
                 long size = m.getRowKeys().size();
                 System.out.println("total param: " + size);
@@ -32,21 +34,20 @@ public class BigModelWriter implements ModelWriter {
                 m.setLocalCache(null);
                 long start = 0L;
                 while(start < size-1) {
+//                    if (start == 0L) {
+//                        com.esotericsoftware.minlog.Log.TRACE = true;
+//                    }
                     long end = Math.min(start + maxFetchRows, size) - 1;
                     KeyRange range = new KeyRange(start, end);
                     System.out.println("fetch param: " + range);
                     Matrix result = dataBus.fetchFromServer (matrixName, range);
-                    if (m.localCache == null) {
-                        m.setLocalCache (result);
-                    }
-                    else {
-                        System.out.println("merge to local cache.");
-                        m.localCache.mergeMatrix(result);
-                    }
-                    System.out.println("fetch done: " + m.localCache);
+                    paramCount += result.getRowKeys().size();
+                    System.out.println("fetch done: " + paramCount);
+                    //if (start == 0L) {
+                    //    com.esotericsoftware.minlog.Log.TRACE = false;
+                    //}
                     start = end + 1;
                 }
-                System.out.println("fetched param: " + matrixName + ", size=" + m.localCache.getRowKeys().size());
             }
         }
     }

@@ -31,12 +31,15 @@ public class Logger {
         String typeStr = logType.toString();
         String roleStr = role.toString();
 
-        if (logType == Type.ERROR)
-            System.err.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
-                    "[" + roleStr + "-" + index + "] " + msg);
-        else
+
+        if (index > 0) {
             System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
-                "[" + roleStr + "-" + index + "] " + msg);
+                    "[" + roleStr + "-" + index + "] " + msg);
+        }
+        else {
+            System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
+                    "[" + roleStr + "] " + msg);
+        }
     }
 
     public static void DebugLog(String msg, Role role, int index) {
@@ -45,6 +48,10 @@ public class Logger {
 
     public static void InfoLog(String msg, Role role, int index) {
         Log(Type.INFO, msg, role, index);
+    }
+
+    public static void InfoLog(String msg, Role role) {
+        Log(Type.INFO, msg, role, -1);
     }
 
     public static void WarnLog(String msg, Role role, int index) {

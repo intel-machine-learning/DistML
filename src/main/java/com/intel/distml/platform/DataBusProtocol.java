@@ -1,5 +1,6 @@
-package com.intel.distml.transport;
+package com.intel.distml.platform;
 
+import com.intel.distml.api.Model;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Matrix;
 
@@ -14,10 +15,6 @@ import java.util.LinkedList;
 public class DataBusProtocol {
 
     public static class ScamlMessage implements Serializable {}
-
-    //=========================================================================
-    // General Messages
-    //=========================================================================
 
     public static class SampleRequest extends ScamlMessage {
 
@@ -70,22 +67,6 @@ public class DataBusProtocol {
         }
     }
 
-    // data returned per request
-    public static class InitializeData extends ScamlMessage {
-        private static final long serialVersionUID = 1L;
-
-        public final String matrixName;
-        public final Matrix data;
-        public InitializeData(String matrixName, Matrix _data) {
-            this.matrixName = matrixName;
-            this.data = _data;
-        }
-    }
-
-    //=========================================================================
-    // Messages between workers
-    //=========================================================================
-
     // fetch input data before training
     public static class PushDataRequest extends ScamlMessage {
 
@@ -117,17 +98,5 @@ public class DataBusProtocol {
             this.success = success;
         }
     }
-
-/*
-    // Only used by worker
-    public static class WorkerDataRequest implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        final public int workerIndex;
-        WorkerDataRequest(int workerIndex) {
-            this.workerIndex = workerIndex;
-        }
-    }
-*/
 
 }

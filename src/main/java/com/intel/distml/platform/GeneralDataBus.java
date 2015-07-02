@@ -1,4 +1,4 @@
-package com.intel.distml.transport;
+package com.intel.distml.platform;
 
 import akka.actor.ActorContext;
 import akka.actor.ActorRef;
@@ -23,20 +23,17 @@ import static akka.dispatch.Futures.sequence;
  */
 public class GeneralDataBus {
 
-    int dataBusId;
-
     Model model;
     ActorContext context;
 
-    public GeneralDataBus(int dataBusId, Model model, ActorContext context) {
-        this.dataBusId = dataBusId;
+    public GeneralDataBus(Model model, ActorContext context) {
         this.model = model;
         this.context = context;
     }
 
     public Matrix fetchFromRemote(String matrixName, KeyCollection rowKeys, KeyCollection colsKeys,
                                   PartitionInfo partitionInfo, ActorRef[] remotes) {
-        log("fetchFromRemote: " + matrixName);
+        log("fetchFromRemote: " + matrixName + ", " + partitionInfo);
         LinkedList<Future<Object>> responseFutures = new LinkedList<Future<Object>>();
         if ((partitionInfo == null) || (partitionInfo.type == PartitionInfo.Type.COPIED)) {
             DataBusProtocol.PartialDataRequest partialDataRequest = new DataBusProtocol.PartialDataRequest(matrixName, rowKeys, colsKeys);
@@ -50,9 +47,10 @@ public class GeneralDataBus {
         else {
             for (int serverIndex = 0; serverIndex < partitionInfo.partitions.size(); ++serverIndex) {
                 Partition partition = partitionInfo.partitions.get(serverIndex);
+                //log("check intersect: " + partition.keys + ", " + rowKeys);
                 KeyCollection keys = partition.keys.intersect(rowKeys);
                 if (!keys.isEmpty()) {
-                    log("partial request: " + keys.size());
+                    //log("partial request: " + keys.size());
                     DataBusProtocol.PartialDataRequest partialDataRequest = new DataBusProtocol.PartialDataRequest(matrixName, keys, colsKeys);
                     responseFutures.add(Patterns.ask(remotes[serverIndex], partialDataRequest, Constants.DATA_FUTURE_TIMEOUT));
                 }
@@ -62,19 +60,19 @@ public class GeneralDataBus {
 
         try {
             Iterable<Object> responses = Await.result(responsesFuture, Constants.DATA_FUTURE_TIMEOUT_DURATION);
-            log("response: " + responses);
+            //log("response: " + responses);
             if (responses instanceof DataBusProtocol.Data) {
-                System.out.println("data response: " + ((DataBusProtocol.Data) responses).data);
+                //System.out.println("data response: " + ((DataBusProtocol.Data) responses).data);
                 return ((DataBusProtocol.Data) responses).data;
             }
             else {
                 LinkedList<Matrix> dataList = new LinkedList<Matrix>();
                 for (Object response : responses) {
                     DataBusProtocol.Data data = (DataBusProtocol.Data) response;
-                    System.out.println("data list response: " + data.data);
+                    //System.out.println("data list response: " + data.data);
                     // Just in case, in fact normally the data should never be null
                     if (data.data != null) {
-                        System.out.println("add to list: " + dataList);
+                        //System.out.println("add to list: " + dataList);
                         dataList.add(data.data);
                     }
                 }
@@ -85,7 +83,7 @@ public class GeneralDataBus {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            Logger.ErrorLog(e.toString(), Logger.Role.DATABUS, dataBusId);
+            Logger.ErrorLog(e.toString(), Logger.Role.DATABUS, 0);
             throw new RuntimeException("no result.");
             //return null; // TODO Return null?
         }
@@ -110,7 +108,7 @@ public class GeneralDataBus {
                 Partition partition = partitionInfo.partitions.get(serverIndex);
                 Matrix part = data.subMatrix(partition.keys, KeyCollection.ALL);
                 if ((part != null) && (part.getRowKeys().size() > 0)) {
-                    log("push data size " + part.getRowKeys().size() + " to " + remotes[serverIndex]);
+                    //log("push data size " + part.getRowKeys().size() + " to " + remotes[serverIndex]);
                     total += part.getRowKeys().size();
                     DataBusProtocol.PushDataRequest pushRequest = new DataBusProtocol.PushDataRequest(matrixName, initializeOnly, part);
                     responseFutures.add(Patterns.ask(remotes[serverIndex], pushRequest, Constants.DATA_FUTURE_TIMEOUT));
@@ -124,7 +122,7 @@ public class GeneralDataBus {
 
         try {
             Iterable<Object> responses = Await.result(responsesFuture, Constants.DATA_FUTURE_TIMEOUT_DURATION);
-            System.out.println("response: " + responses);
+            //System.out.println("response: " + responses);
             boolean result = true;
             for(Object res : responses) {
                 if (!((DataBusProtocol.PushDataResponse)res).success) {
@@ -134,7 +132,7 @@ public class GeneralDataBus {
             return true;
         } catch (Exception e) {
             e.printStackTrace();
-            Logger.ErrorLog(e.toString(), Logger.Role.DATABUS, dataBusId);
+            Logger.ErrorLog(e.toString(), Logger.Role.DATABUS, 0);
             throw new RuntimeException("failed to push.");
             //return null; // TODO Return null?
         }
@@ -146,7 +144,7 @@ public class GeneralDataBus {
             Matrix newMatrix = matrices.get(0);
             matrices.remove(0);
             newMatrix.mergeMatrices(matrices);
-            System.out.println("merged: " + newMatrix);
+            //System.out.println("merged: " + newMatrix);
             return newMatrix;
         } else {
             throw new RuntimeException("invalid result, empty list.");

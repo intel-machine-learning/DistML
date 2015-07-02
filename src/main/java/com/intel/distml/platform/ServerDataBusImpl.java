@@ -1,4 +1,4 @@
-package com.intel.distml.transport;
+package com.intel.distml.platform;
 
 import akka.actor.ActorContext;
 import akka.actor.ActorRef;
@@ -15,12 +15,11 @@ import com.intel.distml.util.Matrix;
  */
 public class ServerDataBusImpl extends GeneralDataBus implements ServerDataBus {
 
-    int dataBusId;
     ActorRef[] parameterServers;
     int parameterServerNumber;
 
-    public ServerDataBusImpl(int dataBusId, ActorRef[] parameterServers, Model model, ActorContext context) {
-        super(dataBusId, model, context);
+    public ServerDataBusImpl(ActorRef[] parameterServers, Model model, ActorContext context) {
+        super(model, context);
         this.parameterServers = parameterServers;
         this.parameterServerNumber = parameterServers.length;
     }

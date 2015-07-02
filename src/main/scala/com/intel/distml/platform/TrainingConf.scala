@@ -24,21 +24,15 @@ class TrainingConf (
   var iteration: Int = 1
 
   var psCount: Int = 1
-  var groupCount: Int = 1
-  var groupSize: Int = 1
+  var workerCount: Int = 1
 
   def psCount(psCount: Int): TrainingConf = {
     this.psCount = psCount
     this
   }
 
-  def groupCount(groupCount: Int): TrainingConf = {
-    this.groupCount = groupCount
-    this
-  }
-
-  def groupSize(groupSize: Int): TrainingConf = {
-    this.groupSize = groupSize
+  def workerCount(workerCount: Int): TrainingConf = {
+    this.workerCount = workerCount
     this
   }
 

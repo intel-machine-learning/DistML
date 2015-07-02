@@ -42,4 +42,12 @@ public class PartitionInfo implements Serializable {
     public Type getType() {
         return type;
     }
+
+    @Override
+    public String toString() {
+        String s = "" + type;
+        // add more information here
+
+        return s;
+    }
 }

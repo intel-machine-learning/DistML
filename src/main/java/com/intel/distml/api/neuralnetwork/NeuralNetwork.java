@@ -50,14 +50,12 @@ public class NeuralNetwork extends Model {
         this.sample = sample;
         ((InputLayer)getLayer(0)).setSample(sample);
 
-//        while(true) {
             for (int i = 1; i < layers.length; i++) {
                 Layer layer = layers[i];
                 for (int j = 0; j < layer.edges.size(); j++) {
                     Edge e = layer.edges.get(j);
                     e.computeForward(this, workerIndex, dataBus);
                 }
-                dataBus.barrier();
             }
 
             if (bpNeeded) {
@@ -68,13 +66,10 @@ public class NeuralNetwork extends Model {
                         Edge e = layer.edges.get(j);
                         e.computeBackward(this, workerIndex, dataBus);
                     }
-                    dataBus.barrier();
                 }
             }
 
             System.out.println("sample done.");
-            //dataBus.iterationDone();
-//        }
     }
 
     @Override
