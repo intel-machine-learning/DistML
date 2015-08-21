@@ -18,14 +18,8 @@ echo "apppath: $APP_JARS"
 MainClass="com.intel.distml.app.rosenblatt.RosenblattApp"
 if [ "$1" = "mnist" ]; then
 	MainClass="com.intel.distml.app.mnist.MNIST"
-elif [ "$1" = "mlr" ]; then
-	MainClass="com.intel.distml.app.mlr.MLR"
-elif [ "$1" = "sparselr" ]; then
-	MainClass="com.intel.distml.app.tencent.ParallelSGDForLR"
 elif [ "$1" = "word2vec" ]; then
 	MainClass="com.intel.distml.app.word2vec.EngWords"
-elif [ "$1" = "locallr" ]; then
-	MainClass="com.intel.distml.app.lr.LR"
 elif [ "$1" = "lda" ]; then
 	MainClass="com.intel.distml.app.lda.LDA"
 fi

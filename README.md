@@ -19,7 +19,7 @@ Data Parallel and Model Parallel
 ![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/data_parallel.png)
 
   However in industry problems, we often need to handle very big models. For example, logistic regress may need 1~10 billion features. Hosting these features in a single server (master) or one worker is not realistic. With model parallel, these parameters are stored in a server cluster, and workers are also grouped to host necessary parameters in each group, the group size can be one or more. Like data parallel, each worker group updates the parameters with local dataset, then the updates are pushed to server and merged to existed parameters.
-![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/model_parallel.png)
+![image](https://github.com/intel-machine-learning/DistML/blob/master/doc/workflow.png)
 
   Notes: parameter updates from worker to server may occur asynchronously, or only occur at the end of each iteration, this depends on platform/algorithm implementation. Mllib on spark chooses the last solution because of RDD limitions.
   
