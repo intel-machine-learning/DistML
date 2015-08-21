@@ -14,9 +14,9 @@ import scala.collection.mutable
 /**
  * Created by yunlong on 6/3/15.
  */
-class ParamServerDriver (@transient spark : SparkContext, actorSystemConfig : String, monitor : String, modelBroadcast : Broadcast[Model], psCount : Int) extends Thread with Serializable {
+class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broadcast[Model], actorSystemConfig : String, monitor : String, psCount : Int) extends Thread with Serializable {
 
-  def paramServerTask(modelBroadcast: Broadcast[Model])(index: Int) : Int = {
+  def paramServerTask(modelBroadcast : Broadcast[Model])(index: Int) : Int = {
 
     println("starting server task")
 
@@ -29,7 +29,7 @@ class ParamServerDriver (@transient spark : SparkContext, actorSystemConfig : St
       ConfigFactory.load(parameterServerRemoteConfig))
 
     // Start parameter server
-    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(monitor, modelBroadcast, index),
+    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(modelBroadcast.value, monitor, index),
       PARAMETER_SERVER_ACTOR_NAME)
 
     parameterServerActorSystem.awaitTermination()

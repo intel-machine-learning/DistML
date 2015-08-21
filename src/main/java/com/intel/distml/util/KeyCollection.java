@@ -21,6 +21,7 @@ public abstract class KeyCollection implements Serializable {
     public abstract long size();
 
     public KeyCollection intersect(KeyCollection keys) {
+        System.out.println("intersect: " + this + ", " + keys);
 
         if (keys.equals(KeyCollection.ALL)) {
             return this;
@@ -62,7 +63,11 @@ public abstract class KeyCollection implements Serializable {
 
         @Override
         public Iterator<Long> iterator() {
-            throw new UnsupportedOperationException("This is an EMPTY_KEYS instance, not iterable.");
+            return new Iterator<Long>() {
+                public boolean hasNext() { return false; }
+                public Long next() { return -1L; }
+                public void remove() {  }
+            };
         }
 
         @Override

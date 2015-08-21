@@ -42,6 +42,12 @@ public class Logger {
         }
     }
 
+    public static void Log(Type logType, String module, String msg) {
+        String typeStr = logType.toString();
+        System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
+                "[" + module + "] " + msg);
+    }
+
     public static void DebugLog(String msg, Role role, int index) {
         Log(Type.DEBUG, msg, role, index);
     }
@@ -60,5 +66,9 @@ public class Logger {
 
     public static void ErrorLog(String msg, Role role, int index) {
         Log(Type.ERROR, msg, role, index);
+    }
+
+    public static void DebugLog(String module, String msg) {
+        Log(Type.DEBUG, module, msg);
     }
 }

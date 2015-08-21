@@ -1,7 +1,7 @@
 package com.intel.distml.app.mnist
 
 import com.intel.distml.api.Model
-import com.intel.distml.platform.{TrainingConf, TrainingHelper}
+import com.intel.distml.platform.{TrainingContext, TrainingHelper}
 import org.apache.spark.{SparkContext, SparkConf}
 
 /**
@@ -22,7 +22,7 @@ object MNIST_Local {
 val trainingFile: String = "mnist_60.txt"
     val rawLines = spark.textFile(trainingFile)
     println(rawLines.count())
-    val config: TrainingConf = new TrainingConf();
+    val config: TrainingContext = new TrainingContext();
     val m: Model = new MNISTModel
 
     TrainingHelper.startTraining(spark, m, rawLines, config);

@@ -71,7 +71,7 @@ public class LRModel extends Model {
     }
 
     @Override
-    public void compute(Matrix sample, int workerIndex, DataBus dataBus) {
+    public void compute(Matrix sample, int workerIndex, DataBus dataBus, int iter) {
         // sample.data 100*2
         // sample.label 100*1
         //

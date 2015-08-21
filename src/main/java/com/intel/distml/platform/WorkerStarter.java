@@ -15,6 +15,7 @@ import java.util.Iterator;
 public class WorkerStarter extends UntypedActor {
 
     public static interface Callback {
+        //void monitorReady();
         void parameterServersReady();
     }
 
@@ -40,6 +41,7 @@ public class WorkerStarter extends UntypedActor {
     public void onReceive(Object msg) {
         if (msg instanceof MonitorActor.ParameterServersReady) {
             callback.parameterServersReady();
+            System.out.println("telling monitor to stop training");
             monitor.tell(new MonitorActor.TrainingDone(), getSelf());
 
             getContext().stop(getSelf());

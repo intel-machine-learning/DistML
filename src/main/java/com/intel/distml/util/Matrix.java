@@ -1,6 +1,7 @@
 package com.intel.distml.util;
 
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.List;
 
 public abstract class Matrix implements Serializable {
@@ -15,6 +16,9 @@ public abstract class Matrix implements Serializable {
     public abstract KeyCollection getRowKeys();
 
 	public abstract KeyCollection getColKeys();
+
+//	public abstract T element(long row);
+//	public abstract T element(long row, long col);
 
 	public void show() {
 		System.out.println("=== show() not implemented ===");

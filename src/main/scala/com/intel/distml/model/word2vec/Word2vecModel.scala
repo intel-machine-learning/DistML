@@ -27,52 +27,51 @@ import scala.collection.mutable.ArrayBuffer
 import com.github.fommil.netlib.BLAS.{getInstance => blas}
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 
+class ParamMatrix(vocabSize : Int, dim : Int) extends DMatrix(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER, vocabSize) {
+
+  setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH);
+
+  override def initOnServer(psIndex: Int, keys: KeyCollection) {
+
+    val d = new WordVectorWithAlpha(dim);
+    val nodeData = new GeneralArray[WordVectorWithAlpha](d, keys)
+
+    var size = keys.size().toInt
+    for (i <- 0 to size-1) {
+      nodeData.values(i) = new WordVectorWithAlpha(dim)
+      nodeData.values(i).init(Word2VecModel.ALPHA);
+    }
+    setLocalCache(nodeData)
+  }
+}
+
+class UpdateMatrix(vocabSize : Int, dim : Int) extends DMatrix(DMatrix.FLAG_ON_SERVER, vocabSize) {
+
+  override def initOnServer(psIndex: Int, keys: KeyCollection) {
+    val d = new WordVectorUpdate(dim);
+    val nodeData = new GeneralArray[WordVectorUpdate](d, keys)
+
+    var size = keys.size().toInt
+    for (i <- 0 to size-1) {
+      nodeData.values(i) = new WordVectorUpdate(dim)
+      nodeData.values(i).init();
+    }
+    setLocalCache(nodeData)
+  }
+
+  override def initOnWorker(psIndex: Int, keys: KeyCollection) {
+  }
+
+}
+
 class Word2VecModel (
 val wordTree : WordTree,
-wordMap :  mutable.HashMap[String, Int],
-dim : Int) extends Model {
+val wordMap :  mutable.HashMap[String, Int],
+val dim : Int) extends Model {
 
   this.autoFetchParams = false
 
-  class ParamMatrix(vocabSize : Int) extends DMatrix(DMatrix.FLAG_PARAM | DMatrix.FLAG_ON_SERVER, vocabSize) {
 
-    setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH);
-
-    override def initOnServer(psIndex: Int, keys: KeyCollection) {
-
-      val d = new WordVectorWithAlpha(dim);
-      log("create word vectors: " + keys.size() + ", with dim " + dim)
-      val nodeData = new GeneralArray[WordVectorWithAlpha](d, keys)
-
-      var size = keys.size().toInt
-      for (i <- 0 to size-1) {
-        nodeData.values(i) = new WordVectorWithAlpha(dim)
-        nodeData.values(i).init(Word2VecModel.ALPHA);
-      }
-      setLocalCache(nodeData)
-    }
-
-
-  }
-
-  class UpdateMatrix(vocabSize : Int) extends DMatrix(DMatrix.FLAG_ON_SERVER, vocabSize) {
-
-    override def initOnServer(psIndex: Int, keys: KeyCollection) {
-      val d = new WordVectorUpdate(dim);
-      val nodeData = new GeneralArray[WordVectorUpdate](d, keys)
-
-      var size = keys.size().toInt
-      for (i <- 0 to size-1) {
-        nodeData.values(i) = new WordVectorUpdate(dim)
-        nodeData.values(i).init();
-      }
-      setLocalCache(nodeData)
-    }
-
-    override def initOnWorker(psIndex: Int, keys: KeyCollection) {
-    }
-
-  }
 
   @transient var expTable: Array[Float] = null;
   @transient var neu1 : TempNodeData = null
@@ -80,10 +79,10 @@ dim : Int) extends Model {
   var nextRandom: Long = 5
 
   locally {
-    var params = new ParamMatrix(wordTree.vocabSize);
+    var params = new ParamMatrix(wordTree.vocabSize, dim);
     params.setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH)
     registerMatrix(Model.MATRIX_PARAM, params)
-    var updates = new UpdateMatrix(wordTree.vocabSize);
+    var updates = new UpdateMatrix(wordTree.vocabSize, dim);
     updates.setPartitionStrategy(DMatrix.PARTITION_STRATEGY_HASH)
     registerMatrix(Model.MATRIX_UPDATE, updates)
   }
@@ -160,8 +159,9 @@ dim : Int) extends Model {
       var tokens = line.split(" ").filter( s => s.length > 0)
       for (token <- tokens) {
         var indexer = wordMap.get(token)
+        //System.out.println("look for word " + token + ", indexer");
         if (!indexer.isEmpty) {
-          val entryIndex = wordMap.get(token).get
+          val entryIndex = indexer.get
           if (entryIndex != -1) {
             keyList.addKey(entryIndex);
 
@@ -178,16 +178,16 @@ dim : Int) extends Model {
   }
 
 
-  override def compute(s: Matrix, workerIndex: Int, dataBus: DataBus) {
+  override def compute(s: Matrix, workerIndex: Int, dataBus: DataBus, iter : Int) {
 
     if (expTable == null)
       init
 
     var sentences = s.asInstanceOf[Blob[util.LinkedList[String]]].element()
-    println("sentence lines: " + sentences.size());
+    println("sentence lines: " + sentences.size() + ", map size=" + wordMap.size);
     val keyList = prefetch(sentences, wordTree, wordMap);
 
-    log("prefetch: " + keyList.size())
+    log("prefetch: " + keyList.size() + ", map size=" + wordMap.size)
     val dataMap : HashMapMatrix[WordVectorWithAlpha] = dataBus.fetchFromServer(Model.MATRIX_PARAM, keyList).asInstanceOf[HashMapMatrix[WordVectorWithAlpha]];
     val updateMap = createUpdateMap(dataMap)
 
@@ -345,7 +345,7 @@ dim : Int) extends Model {
 
 object Word2VecModel {
 
-  val minFreq = 50;
+  val minFreq = 5;
 
   val windowSize = 7
   val vectorSize = 200

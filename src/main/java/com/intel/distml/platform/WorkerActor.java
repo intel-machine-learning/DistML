@@ -1,5 +1,6 @@
 package com.intel.distml.platform;
 
+import java.net.InetSocketAddress;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
@@ -11,8 +12,9 @@ import akka.japi.Creator;
 
 import com.intel.distml.api.*;
 import com.intel.distml.api.databus.DataBus;
-import com.intel.distml.platform.TrainingConf;
 import com.intel.distml.api.DMatrix;
+import com.intel.distml.model.word2vec.Word2VecModel;
+import com.intel.distml.util.DList;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Logger;
 import com.intel.distml.util.Matrix;
@@ -65,11 +67,12 @@ public class WorkerActor<T> extends UntypedActor {
     private int sampleWorkerIndex;
 
     ActorSelection monitor;
-    //ActorRef[] parameterServers;
+    DList result;
 	Model model;
 
-    TrainingConf conf;
+    TrainingContext context;
 
+    InetSocketAddress[] psAddrs;   // parameter servers
     DataBusImpl dataBus;
     int workerIndex;
 
@@ -119,9 +122,8 @@ public class WorkerActor<T> extends UntypedActor {
         @Override
         public void run() {
             while(samples.hasNext()) {
-                //System.out.println("compute");
                 LinkedList<Object> sampleList = new LinkedList<Object>();
-                for (int i = 0; i < conf.miniBatchSize() ; i++) {
+                for (int i = 0; i < context.miniBatchSize ; i++) {
                     if (!samples.hasNext()) break;
                     Object s = samples.next();
                     //System.out.println("add sample: [" + s + "]");
@@ -129,7 +131,13 @@ public class WorkerActor<T> extends UntypedActor {
                 }
                 innerState.currentTrainingProgress += sampleList.size();
 
-                model.compute(model.transformSamples(sampleList), workerIndex, dataBusProxy);
+                log("batch training: " + sampleList.size());
+                if (model.dataSetImmutable) {
+                    model.compute(model.transformSamples(sampleList), workerIndex, dataBusProxy, context.currentIter);
+                }
+                else {
+                    model.compute(model.transformSamples(sampleList), workerIndex, dataBusProxy, context.currentIter, result);
+                }
             }
 
             model.postTraining(workerIndex, dataBus);
@@ -146,13 +154,14 @@ public class WorkerActor<T> extends UntypedActor {
         }
     };
 
-	public WorkerActor(String monitorPath, Model model, int workerIndex
-                       , Iterator<T> samples, TrainingConf conf) {
+	public WorkerActor(Model model, String monitorPath, int workerIndex
+                       , Iterator<T> samples, TrainingContext context, DList result) {
         this.monitor = getContext().actorSelection(monitorPath);
-        this.model = model;
         this.workerIndex = workerIndex;
         this.samples = samples;
-        this.conf = conf;
+        this.context = context;
+        this.result = result;
+        this.model = model;
 
         this.monitor.tell(new RegisterRequest(this.workerIndex), getSelf());
         log("Worker register to monitor: " + monitorPath);
@@ -160,44 +169,46 @@ public class WorkerActor<T> extends UntypedActor {
         setState(State.CREATED);
 	}
 
-	public static <ST> Props props(final String monitorPath, final Model model,
-        final int index, final Iterator<ST> samples, final TrainingConf conf) {
+	public static <ST> Props props(final Model model, final String monitorPath,
+        final int index, final Iterator<ST> samples, final TrainingContext conf, final DList result) {
 		return Props.create(new Creator<WorkerActor>() {
 			private static final long serialVersionUID = 1L;
 			public WorkerActor create() throws Exception {
-				return new WorkerActor(monitorPath, model, index, samples, conf);
+				return new WorkerActor(model, monitorPath, index, samples, conf, result);
 			}
 		});
 	}
 
 	@Override
 	public void onReceive(Object msg) {
-        log("onReceive: " + msg + ", " + innerState.currentState + ", " + conf.progressStepSize());
+        log("onReceive: " + msg + ", " + innerState.currentState + ", " + context.progressStepSize);
 
         if (innerState.currentState == State.CREATED) {
             if (msg instanceof MonitorActor.RegisterResponse) {
                 MonitorActor.RegisterResponse res = (MonitorActor.RegisterResponse) msg;
+                this.psAddrs = res.psAddrs;
 
                 final ActorRef tcpManager = Tcp.get(getContext().system()).manager();
-
-                ActorRef[] clients = new ActorRef[conf.psCount()];
-                for (int i = 0; i < conf.psCount(); i++) {
+                ActorRef[] clients = new ActorRef[context.psCount];
+                for (int i = 0; i < context.psCount; i++) {
                     clients[i] = getContext().actorOf(DataRelay.props(getSelf()));
-                    tcpManager.tell(TcpMessage.connect(res.psAddrs[i]), clients[i]);
+                    tcpManager.tell(TcpMessage.connect(psAddrs[i]), clients[i]);
                 }
                 dataBus = new DataBusImpl(clients, model, getContext());
+
                 innerState.dataBusInitCounter = 0;
 
             } else if (msg instanceof Tcp.Connected) {
                 innerState.dataBusInitCounter++;
-                if (innerState.dataBusInitCounter == conf.psCount()) {
+                if (innerState.dataBusInitCounter == context.psCount) {
                     initModel();
 
                     model.preTraining(workerIndex, dataBus);
 
                     setState(State.TRAINING);
 
-                    progressReminder = getContext().system().scheduler().schedule(Duration.Zero(), Duration.create(5, TimeUnit.SECONDS), getSelf(), new CheckProgress(), getContext().dispatcher(), getSelf());
+                    progressReminder = getContext().system().scheduler().schedule(Duration.Zero(), Duration.create(10, TimeUnit.MILLISECONDS), getSelf(), new CheckProgress(), getContext().dispatcher(), getSelf());
+                    log("thread state: " + trainingThread.getState());
                     trainingThread.start();
                 }
             }
@@ -208,22 +219,31 @@ public class WorkerActor<T> extends UntypedActor {
                 return;
             }
             else if (msg instanceof CheckProgress) {
-                if (innerState.currentTrainingProgress - innerState.lastReportProgress >= conf.progressStepSize()) {
-                    log("progress: " + innerState.currentTrainingProgress + ", " + conf.progressStepSize());
+                if (innerState.currentTrainingProgress - innerState.lastReportProgress >= context.progressStepSize) {
+                    log("progress: " + innerState.currentTrainingProgress + ", " + context.progressStepSize);
                     monitor.tell(new ProgressReport(innerState.currentTrainingProgress - innerState.lastReportProgress,
                             innerState.currentTrainingProgress, workerIndex), getSelf());
-                    innerState.lastReportProgress += conf.progressStepSize();
+                    //innerState.lastReportProgress += context.progressStepSize;
+                    innerState.lastReportProgress = innerState.currentTrainingProgress;
                 }
 
-                if (!trainingThread.isAlive()) {
-                    //log("Tell worker lead training is done");
-                    //monitor.tell(new TrainingDone(workerIndex), getSelf());
+                if (trainingThread.getState() == Thread.State.TERMINATED) {
+                    if (innerState.currentTrainingProgress > innerState.lastReportProgress) {
+                        log("progress: " + innerState.currentTrainingProgress + ", " + context.progressStepSize);
+                        monitor.tell(new ProgressReport(innerState.currentTrainingProgress - innerState.lastReportProgress,
+                                innerState.currentTrainingProgress, workerIndex), getSelf());
+                        innerState.lastReportProgress = innerState.currentTrainingProgress;
+                    }
 
+                    //log("Tell worker lead training is done");
                     progressReminder.cancel();
-                    getContext().stop(getSelf());
+                    monitor.tell(new MonitorActor.WorkerIterationDone(workerIndex, context.currentIter), getSelf());
                 }
 
                 return;
+            }
+            else if (msg instanceof MonitorActor.Stop) {
+                getContext().stop(getSelf());
             }
         }
         else unhandled(msg);

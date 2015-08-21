@@ -1,5 +1,7 @@
 package com.intel.distml.util;
 
+import scala.tools.nsc.Global;
+
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -8,7 +10,7 @@ import java.util.Set;
 /**
  * Created by yunlong on 2/1/15.
  */
-public class HashMapMatrix<T> extends Matrix {
+public class HashMapMatrix<T> extends Matrix implements Cloneable {
 
     public HashMap<Long, T> data;
 //    public long dim;
@@ -189,5 +191,36 @@ public class HashMapMatrix<T> extends Matrix {
                 data.put(k, m.data.get(k));
             }
         }
+    }
+//    @Override
+//    public Object clone(){
+//        HashMapMatrix<T> hm=new HashMapMatrix<T>();
+//        hm.data=(HashMap<Long, T>)this.data.clone();
+//        return hm;
+//    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        //HashMapMatrix<T> newInstance = (HashMapMatrix<T>) super.clone();
+        //newInstance.data= (HashMap<Long, T>) this.data.clone();
+
+        HashMapMatrix<Integer[]> newInstance = new HashMapMatrix<Integer[]>();
+        newInstance.data = new HashMap<Long, Integer[]>();
+        java.util.Iterator<Long> itr = this.data.keySet().iterator();
+
+        while(itr.hasNext()){
+            Long key=itr.next();
+
+            if(!(this.data.get(key) instanceof Integer[]))
+                throw new RuntimeException("only support integer[] clone");
+
+            Integer[] value = (Integer[]) this.data.get(key);
+            Integer[] newValue = new Integer[value.length];
+            for(int i=0;i<value.length;i++)
+                newValue[i]=value[i];
+            newInstance.data.put(new Long(key),newValue);
+        }
+
+        return newInstance;
     }
 }

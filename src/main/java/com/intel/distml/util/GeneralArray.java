@@ -133,7 +133,7 @@ public class GeneralArray<T> extends Matrix {
             return output;
         }
 
-        KeyRange _rows = (KeyRange)rowKeys.intersect(rows);
+        KeyCollection _rows = rowKeys.intersect(rows);
         T[] _v = (T[]) Array.newInstance(values[0].getClass(), (int) _rows.size());
         GeneralArray<T> result = (GeneralArray<T>) createEmptySubMatrix();
         result.values = _v;
@@ -175,6 +175,10 @@ public class GeneralArray<T> extends Matrix {
 
     @Override
     public boolean mergeMatrix(Matrix _m) {
+        System.out.println("mergeMatrix in General Array");
+        if (_m.getRowKeys().isEmpty()) {
+            return true;
+        }
 
         if (_m instanceof HashMapMatrix) {
             return mergeHashMapMatrix((HashMapMatrix)_m);
@@ -207,7 +211,7 @@ public class GeneralArray<T> extends Matrix {
 
         // if one range is a child of the other, do nothing
         if ((keys2.firstKey >= keys1.firstKey) && (keys2.lastKey <= keys1.lastKey)) {
-            System.out.println("no merge needed ");
+            System.out.println("no merge needed in General Array ");
             return true;
         }
 

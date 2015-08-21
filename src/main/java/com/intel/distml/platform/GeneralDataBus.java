@@ -47,8 +47,9 @@ public class GeneralDataBus {
         else {
             for (int serverIndex = 0; serverIndex < partitionInfo.partitions.size(); ++serverIndex) {
                 Partition partition = partitionInfo.partitions.get(serverIndex);
-                //log("check intersect: " + partition.keys + ", " + rowKeys);
+                log("check intersect: " + partition.keys + ", " + rowKeys);
                 KeyCollection keys = partition.keys.intersect(rowKeys);
+                log("partial keys: " + keys.size());
                 if (!keys.isEmpty()) {
                     //log("partial request: " + keys.size());
                     DataBusProtocol.PartialDataRequest partialDataRequest = new DataBusProtocol.PartialDataRequest(matrixName, keys, colsKeys);
@@ -152,6 +153,6 @@ public class GeneralDataBus {
     }
 
     private void log(String msg) {
-        Logger.DebugLog(msg, Logger.Role.DATABUS, 0);
+        Logger.DebugLog("GeneralDataBus", msg);
     }
 }

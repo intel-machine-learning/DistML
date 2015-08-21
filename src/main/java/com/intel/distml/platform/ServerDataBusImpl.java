@@ -33,7 +33,7 @@ public class ServerDataBusImpl extends GeneralDataBus implements ServerDataBus {
     }
 
     public Matrix fetchFromServer(String matrixName, KeyCollection rowKeys, KeyCollection colsKeys) {
-        Logger.DebugLog("fetch from server: " + matrixName + ", " + rowKeys, Logger.Role.DATABUS, 0);
+        Logger.DebugLog("ServerDataBus", "fetch from server: " + matrixName + ", " + rowKeys);
         DMatrix matrix = model.getMatrix(matrixName);
         if (matrix == null) {
             return null;

@@ -45,7 +45,7 @@ public class NeuralNetwork extends Model {
     }
 
     @Override
-    public void compute(Matrix sample, int workerIndex, DataBus dataBus) {
+    public void compute(Matrix sample, int workerIndex, DataBus dataBus, int iter) {
 
         this.sample = sample;
         ((InputLayer)getLayer(0)).setSample(sample);

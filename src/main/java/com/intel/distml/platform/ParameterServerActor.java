@@ -6,21 +6,14 @@ import akka.actor.Props;
 import akka.io.Tcp;
 import akka.io.TcpMessage;
 import akka.japi.Creator;
-import akka.util.ByteString;
-import akka.util.ByteStringBuilder;
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.PartitionInfo;
 import com.intel.distml.api.Model;
 
 import akka.actor.UntypedActor;
 import com.intel.distml.util.*;
-import org.apache.spark.broadcast.Broadcast;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.nio.ByteOrder;
 import java.util.LinkedList;
 
 public class ParameterServerActor extends UntypedActor {
@@ -37,25 +30,17 @@ public class ParameterServerActor extends UntypedActor {
         }
     }
 
-    // request to setup model on server
     public static class ModelSetup extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
-        public final String appId;
-        //public final Model model;
-        public ModelSetup(String appId/*, Model model*/) {
-            this.appId = appId;
-            //this.model = model;
+        public ModelSetup() {
         }
     }
 
-    // request to setup model on server
     public static class ModelSetupDone extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
-        public final String appId;
-        public ModelSetupDone(String appId) {
-            this.appId = appId;
+        public ModelSetupDone() {
         }
     }
 
@@ -65,20 +50,20 @@ public class ParameterServerActor extends UntypedActor {
 
     private LinkedList<ActorRef> clients;
 
-    public static Props props(final String monitorPath, final Broadcast<Model> modelBroadcast, final int parameterServerIndex) {
+    public static Props props(final Model model, final String monitorPath, final int parameterServerIndex) {
         return Props.create(new Creator<ParameterServerActor>() {
             private static final long serialVersionUID = 1L;
             public ParameterServerActor create() throws Exception {
-                return new ParameterServerActor(monitorPath, modelBroadcast, parameterServerIndex);
+                return new ParameterServerActor(model, monitorPath, parameterServerIndex);
             }
         });
     }
 
-    ParameterServerActor(String monitorPath, final Broadcast<Model> modelBroadcast, int parameterServerIndex) {
+    ParameterServerActor(Model model, String monitorPath, int parameterServerIndex) {
         this.monitor = getContext().actorSelection(monitorPath);
         this.parameterServerIndex = parameterServerIndex;
-        this.model = modelBroadcast.getValue();
         this.clients = new LinkedList<ActorRef>();
+        this.model = model;
 
         try {
             final ActorRef tcp = Tcp.get(getContext().system()).manager();
@@ -112,10 +97,8 @@ public class ParameterServerActor extends UntypedActor {
             clients.add(c);
 
         } else if (msg instanceof ModelSetup) {
-
-            ModelSetup req = (ModelSetup)msg;
             initModel();
-            getSender().tell(new ModelSetupDone(req.appId), getSelf());
+            monitor.tell(new ModelSetupDone(), getSelf());
 
         } else if (msg instanceof DataBusProtocol.PartialDataRequest) {// Fetch partial parameters
             DataBusProtocol.PartialDataRequest req = (DataBusProtocol.PartialDataRequest)msg;
@@ -163,7 +146,12 @@ public class ParameterServerActor extends UntypedActor {
             }
             // Always return successful current now
             getSender().tell(new DataBusProtocol.PushDataResponse(true), getSelf());
-        } else unhandled(msg);
+        } else if (msg instanceof MonitorActor.IterationDone) {
+            model.iterationDone(parameterServerIndex, ((MonitorActor.IterationDone) msg).iter);
+            monitor.tell(new MonitorActor.IterationDoneAck(parameterServerIndex), getSelf());
+        }
+
+        else unhandled(msg);
     }
 
     private void initModel() {
@@ -184,7 +172,7 @@ public class ParameterServerActor extends UntypedActor {
                 }
             }
 
-            log("init parameters on server: " + matrixName);
+            log("init parameters on server: " + matrixName + ", " + model + ", " + m);
             m.initOnServer(this.parameterServerIndex, keys);
         }
     }

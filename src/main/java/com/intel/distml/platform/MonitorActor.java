@@ -2,11 +2,10 @@ package com.intel.distml.platform;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.concurrent.TimeUnit;
 
 import akka.actor.*;
+import akka.io.Inet;
 import akka.io.Tcp;
 import akka.io.TcpMessage;
 import akka.japi.Creator;
@@ -15,11 +14,9 @@ import akka.pattern.Patterns;
 import com.intel.distml.api.Model;
 import com.intel.distml.api.ModelWriter;
 import com.intel.distml.api.databus.MonitorDataBus;
-import com.intel.distml.platform.TrainingConf;
 import com.intel.distml.util.*;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
-import scala.concurrent.duration.Duration;
 
 import static akka.dispatch.Futures.sequence;
 
@@ -51,6 +48,47 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
+    public static class IterationDone extends DistMLMessage {
+        private static final long serialVersionUID = 1L;
+
+        final public int iter;
+        public IterationDone(final int iter) {
+            this.iter = iter;
+        }
+
+        public String toString() {
+            return "IterationDone";
+        }
+    }
+
+    public static class IterationDoneAck extends DistMLMessage {
+        private static final long serialVersionUID = 1L;
+
+        final public int psIndex;
+        public IterationDoneAck(final int psIndex) {
+            this.psIndex = psIndex;
+        }
+
+        public String toString() {
+            return "IterationDoneAck";
+        }
+    }
+
+    public static class WorkerIterationDone extends DistMLMessage {
+        private static final long serialVersionUID = 1L;
+
+        final public int iter;
+        final public int workerIndex;
+        public WorkerIterationDone(final int workerIndex, final int iter) {
+            this.iter = iter;
+            this.workerIndex = workerIndex;
+        }
+
+        public String toString() {
+            return "WorkerIterationDone";
+        }
+    }
+
     public static class TrainingDone extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
@@ -63,11 +101,22 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
+    public static class Stop extends DistMLMessage {
+        private static final long serialVersionUID = 1L;
+
+        public Stop() {
+        }
+
+        public String toString() {
+            return "Stop";
+        }
+    }
+
     public static class RegisterResponse extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
         final public ActorRef[] parameterServers;   // parameter servers
-        final public InetSocketAddress[] psAddrs;   // parameter servers
+        final public InetSocketAddress[] psAddrs;   // parameter servers address
 
         public RegisterResponse(ActorRef[] parameterServers, InetSocketAddress[] psAddrs) {
             this.parameterServers = parameterServers;
@@ -103,6 +152,9 @@ public class MonitorActor extends UntypedActor {
     private int workerCount;
     private long totalSamples;
     private long progress;
+
+    //private ActorRef modelSender;
+    //private InetSocketAddress addr;
 
     private ActorRef[] parameterServers;
     private InetSocketAddress[] psAddrs;
@@ -147,10 +199,10 @@ public class MonitorActor extends UntypedActor {
 
 
     // Use configuration class later
-    public MonitorActor(String appId, Model model, TrainingConf config, ModelWriter modelWriter) {
+    public MonitorActor(String appId, Model model, TrainingContext context, ModelWriter modelWriter) {
         this.appId = appId;
-        this.psCount = config.psCount();
-        this.workerCount = config.workerCount();
+        this.psCount = context.psCount;
+        this.workerCount = context.workerCount;
         this.parameterServers = new ActorRef[psCount];
         this.psAddrs = new InetSocketAddress[psCount];
         this.workers = new ActorRef[workerCount];
@@ -159,18 +211,19 @@ public class MonitorActor extends UntypedActor {
         this.model = model;
         this.modelWriter = modelWriter;
 
-        this.totalSamples = config.totalSampleCount();
+        this.totalSamples = context.totalSampleCount;
         this.progress = 0;
 
-        log("Monitor created, psCount:" + psCount + " workerCount: " + workerCount);
-
-        // TODO Add parameter server later, set init state to ACTOR_REGISTRATION current now
-        setState(State.PS_REGISTRATION);
+        setState(State.CREATED);
         innerState.psCounter = 0;
         innerState.workerCounter = 0;
+
+        log("Monitor created, psCount:" + psCount + " workerCount: " + workerCount);
+        //this.modelSender = getContext().actorOf(ModelSender.props(getSelf(), model));
+
     }
 
-    public static Props props(final String appId, final Model model, final TrainingConf config, final ModelWriter modelWriter) {
+    public static Props props(final String appId, final Model model, final TrainingContext config, final ModelWriter modelWriter) {
         return Props.create(new Creator<MonitorActor>() {
             private static final long serialVersionUID = 1L;
             public MonitorActor create() throws Exception {
@@ -182,12 +235,17 @@ public class MonitorActor extends UntypedActor {
     @Override
     public void onReceive(Object msg) throws Exception {
         log("onReceive: " + msg + ", " + innerState.currentState + ", " + getSender());
-
-        if (innerState.currentState == State.PS_REGISTRATION) {
+        if (innerState.currentState == State.CREATED) {
             if (msg instanceof WorkerStarterRegister) {
                 this.workerStarter = getSender();
             }
-            else if (msg instanceof ParameterServerActor.RegisterRequest) {
+
+            if (workerStarter != null) {
+                setState(State.PS_REGISTRATION);
+            }
+        } else if (innerState.currentState == State.PS_REGISTRATION) {
+
+            if (msg instanceof ParameterServerActor.RegisterRequest) {
                 ParameterServerActor.RegisterRequest req = (ParameterServerActor.RegisterRequest)msg;
                 log("Parameter server registered: " + getSender());
 
@@ -198,25 +256,23 @@ public class MonitorActor extends UntypedActor {
                 if (innerState.psCounter == psCount) {
                     setState(State.INIT_PARAMETER_SERVER);
                     for (int i = 0; i < parameterServers.length; i++) {
-                        parameterServers[i].tell(new ParameterServerActor.ModelSetup(appId), getSelf());
+                        parameterServers[i].tell(new ParameterServerActor.ModelSetup(), getSelf());
                     }
                 }
             }
         }
         else if (innerState.currentState == State.INIT_PARAMETER_SERVER) {
             if (msg instanceof ParameterServerActor.ModelSetupDone) {
-
                 innerState.psCounter++;
                 if (innerState.psCounter == psCount) {
                     setState(State.MONITOR_TRAINING);
                     workerStarter.tell(new ParameterServersReady(parameterServers), getSelf());
                 }
-
             } else unhandled(msg);
         }
         else if (innerState.currentState == State.MONITOR_TRAINING) {
             if (msg instanceof WorkerActor.RegisterRequest) {
-                WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest)msg;
+                WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
                 log("worker registered: " + info.globalWorkerIndex);
 
                 workers[info.globalWorkerIndex] = getSender();
@@ -225,11 +281,33 @@ public class MonitorActor extends UntypedActor {
             else if (msg instanceof WorkerActor.ProgressReport) {
                 int p = ((WorkerActor.ProgressReport) msg).trained;
                 progress += p;
-                log("progress: " + p + " from " + getSender());
+                log("progress: " + p + "[" + progress + "] from " + getSender());
                 WorkerActor.ProgressReport report = (WorkerActor.ProgressReport)msg;
                 trainingProgress[report.workerIndex] = report.totalTrained;
 
                 model.progress(totalSamples, progress, dataBus);
+            } else if (msg instanceof WorkerIterationDone) {
+                innerState.workerCounter++;
+                if (innerState.workerCounter == workerCount) {
+                    innerState.workerCounter = 0;
+                    innerState.psCounter = 0;
+
+                    IterationDone notify = new IterationDone(((WorkerIterationDone)msg).iter);
+                    for (ActorRef ps : parameterServers) {
+                        ps.tell(notify, getSelf());
+                    }
+                }
+            } else if (msg instanceof IterationDoneAck) {
+                innerState.psCounter++;
+                if (innerState.psCounter == psCount) {
+                    innerState.psCounter = 0;
+
+                    Stop req = new Stop();
+                    for (ActorRef w : workers) {
+                        w.tell(req, getSelf());
+                    }
+                }
+
             } else if (msg instanceof TrainingDone) {
                 setState(State.DONE);
                 saveModel();

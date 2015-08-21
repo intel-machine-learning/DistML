@@ -13,7 +13,7 @@ public class DefaultModelWriter implements ModelWriter {
         // skip layer 0 because its input layer, no parameters
         for (String matrixName: model.dataMap.keySet()) {
             DMatrix m = model.dataMap.get(matrixName);
-            if (m.hasFlag(DMatrix.FLAG_PARAM))
+            if (!m.hasFlag(DMatrix.FLAG_PARAM))
                 continue;
 
             Matrix result = dataBus.fetchFromServer(matrixName);

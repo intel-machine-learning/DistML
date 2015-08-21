@@ -5,16 +5,21 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.kryo.util.DefaultClassResolver;
 import com.esotericsoftware.kryo.util.MapReferenceResolver;
-import com.esotericsoftware.minlog.Log;
+import com.intel.distml.api.DMatrix;
+import com.intel.distml.api.Model;
+import com.intel.distml.api.Partition;
+import com.intel.distml.api.PartitionInfo;
+import com.intel.distml.model.lda.*;
+import com.intel.distml.model.rosenblatt.PointSample;
+import com.intel.distml.model.rosenblatt.Rosenblatt;
+import com.intel.distml.model.rosenblatt.Weights;
 import com.intel.distml.model.sparselr.SparseWeights;
 import com.intel.distml.model.sparselr.WeightItem;
-import com.intel.distml.model.word2vec.WordVectorUpdate;
-import com.intel.distml.model.word2vec.WordVectorWithAlpha;
+import com.intel.distml.model.word2vec.*;
 import com.intel.distml.util.*;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * Created by yunlong on 6/18/15.
@@ -72,29 +77,60 @@ public class DataSerializer {
 
         kryo.register(int[].class);
         kryo.register(float[].class);
+        kryo.register(Integer[].class);
+        kryo.register(Integer[][].class);
         kryo.register(Float[].class);
+        kryo.register(Double[].class);
         kryo.register(java.util.LinkedList.class);
         kryo.register(java.util.HashSet.class);
         kryo.register(java.util.HashMap.class);
 
+        kryo.register(scala.collection.mutable.HashMap.class);
+
         kryo.register(KeyCollection.ALL_KEYS.class);
+        kryo.register(KeyCollection.EMPTY_KEYS.class);
         kryo.register(KeyList.class);
         kryo.register(KeyHash.class);
         kryo.register(KeyRange.class);
         kryo.register(GeneralArray.class);
 
+        kryo.register(DataBusProtocol.FetchModelRequest.class);
+        kryo.register(DataBusProtocol.FetchModelResponse.class);
         kryo.register(DataBusProtocol.PartialDataRequest.class);
         kryo.register(DataBusProtocol.Data.class);
         kryo.register(DataBusProtocol.DataList.class);
         kryo.register(DataBusProtocol.PushDataRequest.class);
         kryo.register(DataBusProtocol.PushDataResponse.class);
 
+        kryo.register(Model.class);
+        kryo.register(Partition.class);
+        kryo.register(PartitionInfo.class);
+        kryo.register(PartitionInfo.Type.class);
+        kryo.register(DMatrix.class);
+
+        kryo.register(Word2VecModel.class);
+        kryo.register(WordTree.class);
+        kryo.register(WordNode.class);
+        kryo.register(WordNode[].class);
+        kryo.register(UpdateMatrix.class);
+        kryo.register(ParamMatrix.class);
         kryo.register(WordVectorWithAlpha.class);
         kryo.register(WordVectorWithAlpha[].class);
         kryo.register(HashMapMatrix.class);
         kryo.register(WordVectorUpdate.class);
         kryo.register(WordVectorUpdate[].class);
 
+        kryo.register(LDAModel.class);
+        kryo.register(Dictionary.class);
+        kryo.register(ParamTopic.class);
+        kryo.register(ParamWordTopic.class);
+        kryo.register(Topic.class);
+        kryo.register(WordTopic.class);
+
+        kryo.register(Rosenblatt.class);
+        kryo.register(Rosenblatt.SensorNodes.class);
+        kryo.register(PointSample.class);
+        kryo.register(Weights.class);
 
         kryo.register(SparseWeights.class);
         kryo.register(WeightItem.class);

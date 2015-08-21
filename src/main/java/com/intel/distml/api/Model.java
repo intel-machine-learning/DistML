@@ -2,6 +2,7 @@ package com.intel.distml.api;
 
 import com.intel.distml.api.databus.DataBus;
 import com.intel.distml.api.databus.MonitorDataBus;
+import com.intel.distml.util.DList;
 import com.intel.distml.util.Matrix;
 
 import java.io.Serializable;
@@ -22,6 +23,7 @@ public class Model implements Serializable {
 
     public boolean autoFetchParams;
     public boolean autoPushUpdates;
+    public boolean dataSetImmutable;
 
     public HashMap<String, DMatrix> dataMap;
 
@@ -29,6 +31,7 @@ public class Model implements Serializable {
 
         autoFetchParams = true;
         autoPushUpdates = true;
+        dataSetImmutable = true;
         dataMap = new HashMap<String, DMatrix>();
 
         registerMatrix(MATRIX_SAMPLE, new DMatrix(1));
@@ -88,7 +91,7 @@ public class Model implements Serializable {
 
         for (String matrixName: dataMap.keySet()) {
             DMatrix m = dataMap.get(matrixName);
-            if (m.hasFlag(DMatrix.FLAG_PARAM))
+            if (!m.hasFlag(DMatrix.FLAG_PARAM))
                 continue;
 
             PartitionInfo sp = m.serverPartitions();
@@ -99,6 +102,7 @@ public class Model implements Serializable {
                 m.setLocalCache(params);
             } else {
                 Partition p = wp.getPartition(workerIndex);
+                System.out.println("fetch from server: " + p + ", " + p.keys);
                 Matrix params = dataBus.fetchFromServer(matrixName, p.keys);
                 m.setLocalCache(params);
             }
@@ -116,11 +120,19 @@ public class Model implements Serializable {
             if (!(m instanceof DParam))
                 continue;
 
-            dataBus.pushUpdate(matrixName, ((DParam)m).update);
+            if (((DParam)m).update != null) {
+                dataBus.pushUpdate(matrixName, ((DParam) m).update);
+            }
         }
     }
 
-    public void compute(Matrix sample, int workerIndex, DataBus dataBus) {
+    public void compute(Matrix sample, int workerIndex, DataBus dataBus, final int iterationIndex) {
+    }
+
+    public void compute(Matrix sample, int workerIndex, DataBus dataBus, final int iterationIndex, DList result) {
+    }
+
+    public void variableChanged(String name, Object value) {
 
     }
 
@@ -128,8 +140,8 @@ public class Model implements Serializable {
 
     }
 
-    public void variableChanged(String name, Object value) {
-
+    public void iterationDone(int serverIndex, int iteration) {
+        System.out.println("iteration done: " + iteration);
     }
 
     /**

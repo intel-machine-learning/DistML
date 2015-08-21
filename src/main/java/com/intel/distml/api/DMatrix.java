@@ -17,6 +17,7 @@ public class DMatrix extends Matrix {
 
 	public static final int FLAG_PARAM 	= 1;
 	public static final int FLAG_UPDATE	= 2;
+
 	public static final int FLAG_ON_SERVER = 4;
 	public static final int FLAG_ON_WORKER = 8;
 
@@ -148,6 +149,12 @@ public class DMatrix extends Matrix {
 		return localCache.mergeMatrix(matrix);
 	}
 
+	/**
+	 * Initialize parameters on server nodes.
+	 *
+	 * @param psIndex  index of parameter server
+	 * @param keys	   keys
+	 */
 	public void initOnServer(int psIndex, KeyCollection keys) {
 	}
 

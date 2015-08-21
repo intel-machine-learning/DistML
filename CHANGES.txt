@@ -1,4 +1,7 @@
 
+[2015-08-21]
+1. add draft lda support
+2. support iterative UDF in serverside
 
 [2015-07-01]
 1. removed feature of worker group to reduce code complexity, a new branch "workergrou" is created

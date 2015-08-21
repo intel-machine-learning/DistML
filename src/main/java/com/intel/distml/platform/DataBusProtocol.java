@@ -22,6 +22,23 @@ public class DataBusProtocol {
         }
     }
 
+    // fetch model from monitor
+    public static class FetchModelRequest extends ScamlMessage {
+
+        FetchModelRequest() {
+
+        }
+    }
+    // fetch model from monitor
+    public static class FetchModelResponse extends ScamlMessage {
+
+        public Model model;
+        FetchModelResponse(Model model) {
+            this.model = model;
+        }
+    }
+
+
     // fetch all data of specified matrix
     public static class FetchDataRequest extends ScamlMessage {
 

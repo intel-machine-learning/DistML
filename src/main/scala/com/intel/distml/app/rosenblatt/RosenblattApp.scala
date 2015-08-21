@@ -3,7 +3,7 @@ package com.intel.distml.app.rosenblatt
 import java.io.{BufferedReader, StringReader}
 
 import com.intel.distml.model.rosenblatt.{Rosenblatt, PointSample}
-import com.intel.distml.platform.{TrainingHelper, TrainingConf}
+import com.intel.distml.platform.{TrainingHelper, TrainingContext}
 import org.apache.spark.{SparkContext, SparkConf}
 
 import scala.util.Random
@@ -74,7 +74,7 @@ object RosenblattApp {
 
     val model: Rosenblatt = new Rosenblatt(6)
 
-    val config = new TrainingConf().iteration(4);
+    val config = new TrainingContext().iteration(4);
 
     TrainingHelper.startTraining(spark, model, sampleRdd, config)
 

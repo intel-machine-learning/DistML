@@ -71,7 +71,7 @@ public class SparseLRModel extends Model {
     }
 
     @Override
-    public void compute(Matrix s, int workerIndex, DataBus dataBus) {
+    public void compute(Matrix s, int workerIndex, DataBus dataBus, int iter) {
 //        double eta=0.001;
 //        double Maxiter=10000.0;
 //        for (double iter = 0.0;iter< Maxiter;iter+=1.0){

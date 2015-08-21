@@ -8,7 +8,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkContext, SparkConf}
-import com.intel.distml.platform.{TrainingConf, TrainingHelper}
+import com.intel.distml.platform.{TrainingContext, TrainingHelper}
 
 import org.apache.spark.rdd.RDD
 import scala.collection.mutable
@@ -48,8 +48,11 @@ object EngWords {
     var sparkHome = args(1)
     var sparkMem = args(2)
     var appJars = args(3)
+//    val trainingFile = "hdfs://dl-s1:9000/data/sina/sina_users_4g_blk_512m"
+//    val trainingFile = "hdfs://dl-s1:9000/data/sina/sina_users_46g_blk_4g"
     val trainingFile = "hdfs://dl-s1:9000/data/text/eng_news_256m"
-    val outputFolder = "hdfs://dl-s1:9000/user/yunlong"
+    val outputFolder = "hdfs://dl-s1:9000/user/yunlong/sina"
+    //      val trainingFile = "file:/home/harry/workspace/scaml/novel.txt"
 
     System.setProperty("spark.driver.maxResultSize", "1g");
     val conf = new SparkConf()
@@ -89,7 +92,7 @@ object EngWords {
     var wordTree = Word2VecModel.createBinaryTree(lineCount.toLong, countedWords)
 
 //    val config = new TrainingConf().psCount(2).groupCount(6).miniBatchSize(1000)
-    val config = new TrainingConf().miniBatchSize(100).psCount(4)
+    val config = new TrainingContext().miniBatchSize(100).psCount(4).iteration(2)
     val model = new Word2VecModel(wordTree, wordMap, 200)
 
     TrainingHelper.startTraining(spark, model, rawLines, config, new Word2VecModelWriter(10240))

@@ -74,10 +74,10 @@ public class DataRelay extends UntypedActor {
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        //System.out.println("onReceive: " + msg);
+        //log("onReceive: " + msg);
 
         if (msg instanceof Tcp.CommandFailed) {
-            System.out.println("Connection failed.");
+            log("Connection failed.");
             getContext().stop(getSelf());
         } else if (msg instanceof Tcp.Connected) {
             //System.out.println("Connected: " + getSender());
@@ -90,12 +90,14 @@ public class DataRelay extends UntypedActor {
         } else if (msg instanceof Tcp.Received) {
             ByteString data = ((Tcp.Received) msg).data();
             if (reqSize == -1) {
-                reqSize = data.iterator().getInt(ByteOrder.BIG_ENDIAN);
+                if (data.length() >= 4) {
+                    reqSize = data.iterator().getInt(ByteOrder.BIG_ENDIAN);
+                }
             }
             buf.append(data);
             checkBufComplete();
         } else if (msg instanceof DataBusProtocol.ScamlMessage) {
-            System.out.println("onReceive: " + msg);
+            //log("onReceive: " + msg);
             responsor = getSender();
             sendRequest(msg);
         } else {
@@ -117,26 +119,27 @@ public class DataRelay extends UntypedActor {
         try {
             is.read(new byte[4]);
         } catch (IOException e) {}
-        log("deserialize: " + reqSize);
+
+        //log("deserialize: " + reqSize);
         Object obj = serializer.deserialize(is);
         buf.clear();
         reqSize = -1;
 
-        log("notify responser ");
+        //log("notify responser ");
         responsor.tell(obj, getSelf());
     }
 
     private int sendRequest(Object request) {
         try {
             byte[] reqBuf = serializer.serialize(request);
-            log("serialized data: " + request + ", " + reqBuf.length);
+            //log("serialized data: " + request + ", " + reqBuf.length);
 
             ByteStringBuilder bsb2 = new ByteStringBuilder();
             bsb2.putInt(reqBuf.length, ByteOrder.BIG_ENDIAN);
             connection.tell(TcpMessage.write(bsb2.result()), getSelf());
 
             connection.tell(TcpMessage.write(ByteString.fromArray(reqBuf)), getSelf());
-            log("sent");
+            //log("sent");
 
             return reqBuf.length;
         } catch (Exception e) {
@@ -146,6 +149,6 @@ public class DataRelay extends UntypedActor {
     }
 
     private void log(String msg) {
-        Logger.InfoLog(msg, Logger.Role.DATABUS);
+        Logger.DebugLog("DataRelaye-" + responsor, msg);
     }
 }

@@ -28,17 +28,22 @@ object TrainingHelper {
       |akka.log-dead-letters=off
       |akka.io.tcp.direct-buffer-size = 2 MB
       |akka.io.tcp.trace-logging=off
+      |akka.remote.netty.tcp.maximum-frame-size=4126935
     """.stripMargin
 
   var monitorActorPath = ""
+  var dataSetImmutable = true
 
-  def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingConf): Unit = {
+//  def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingContext,modelWriter: ModelWriter = new DefaultModelWriter()): Unit = {
+//
+//    startTraining(spark, model, samples, config, modelWriter);
+//    dataSetImmutable = model.dataSetImmutable
+//
+//  }
 
-    startTraining(spark, model, samples, config, new DefaultModelWriter());
+  def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingContext, modelWriter : ModelWriter=new DefaultModelWriter): Unit = {
 
-  }
-
-  def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingConf, modelWriter : ModelWriter): Unit = {
+    dataSetImmutable = model.dataSetImmutable
 
     config.workerCount(samples.partitions.length)
 
@@ -78,44 +83,61 @@ object TrainingHelper {
 
     // Start monitor
     val workerStarterActorRef = monitorActorSystem.actorOf(WorkerStarter.props(monitorActorPath,
-      new DistMLListener(spark, modelBroadcast, samples, config, modelWriter)), WORKER_STARTER_ACTOR_NAME)
+      new DistMLListener(spark, samples, modelBroadcast, config, modelWriter)), WORKER_STARTER_ACTOR_NAME)
 
-    // start parameter servers
-    startParameterServers(spark, monitorActorPath, modelBroadcast, config.psCount)
+    startParameterServers(spark, modelBroadcast, monitorActorPath, config.psCount);
 
     systemLog("waiting monitor to die")
     monitorActorSystem.awaitTermination();
     systemLog("monitor dies")
   }
 
-  def startParameterServers(spark : SparkContext, monitor : String, modelBroadcast : Broadcast[Model], psCount : Int): Unit = {
-    (new ParamServerDriver(spark, ACTOR_SYSTEM_CONFIG, monitor, modelBroadcast, psCount)).start()
+  def startParameterServers(spark : SparkContext, modelBroadcast : Broadcast[Model], monitor : String, psCount : Int): Unit = {
+    (new ParamServerDriver(spark, modelBroadcast, ACTOR_SYSTEM_CONFIG, monitor, psCount)).start()
   }
 
-  class DistMLListener[T:ClassTag] (spark : SparkContext, modelBroadcast : Broadcast[Model], samples: RDD[T],
-                                    config : TrainingConf, modelWriter : ModelWriter) extends WorkerStarter.Callback with Serializable{
-
+  class DistMLListener[T:ClassTag] (spark : SparkContext, samples: RDD[T], modelBroadcast : Broadcast[Model],
+                                    context : TrainingContext, modelWriter : ModelWriter) extends WorkerStarter.Callback with Serializable{
+/*
+    override def monitorReady(): Unit = {
+      // start parameter servers
+      startParameterServers(spark, monitorActorPath, context.psCount);
+    }
+*/
     override def parameterServersReady(): Unit = {
 
-      println("parameter servers are ready, start training now.")
+      println("parameter servers are ready, start training now. ")
       //(new WorkerDriver(spark, ACTOR_SYSTEM_CONFIG, monitorActorPath, model, samples, config, modelWriter)).start()
-      for (iter <- 0 to config.iteration - 1) {
+      var tmp = samples;
+      for (iter <- 0 to context.iteration - 1) {
         systemLog("iteration " + iter)
-        samples.mapPartitionsWithIndex(workerStartFunction(monitorActorPath, modelBroadcast, config)).collect
+        context.currentIter = iter
+        if (dataSetImmutable) {
+          samples.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).collect
+        }
+        else {
+          tmp = tmp.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).repartition(context.workerCount)
+          tmp.collect
+
+        }
+        systemLog("iteration done " + iter)
       }
+
+      systemLog("training work done")
     }
   }
 
 
-  def startWorkers[T:ClassTag](spark : SparkContext, modelBroadcast : Broadcast[Model], samples: RDD[T], config : TrainingConf, modelWriter : ModelWriter) {
+  def startWorkers[T:ClassTag](spark : SparkContext, samples: RDD[T], modelBroadcast : Broadcast[Model],config : TrainingContext, modelWriter : ModelWriter) {
     println("start new iteration.");
-    samples.mapPartitionsWithIndex(workerStartFunction(monitorActorPath, modelBroadcast, config)).collect
+    samples.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, config)).collect
   }
 
-  def workerStartFunction[T] (monitorPath : String, modelBroadcast : Broadcast[Model], config : TrainingConf)
-                          (index : Int, samples: Iterator[T]) : Iterator[Int] = {
+  def workerStartFunction[T] (modelBroadcast : Broadcast[Model],monitorPath : String, config : TrainingContext)
+                          (index : Int, samples: Iterator[T]) : Iterator[T] = {
 
     systemLog("starting worker " + index);
+    val results = new MyDList[T]
 
     // Init actor system configurations
     val WORKER_ACTOR_SYSTEM_NAME = "worker-system"
@@ -126,19 +148,15 @@ object TrainingHelper {
     val workerRemoteConfig = ConfigFactory.parseString(ACTOR_SYSTEM_CONFIG)
     val workerActorSystem = ActorSystem(WORKER_ACTOR_SYSTEM_NAME + index, ConfigFactory.load(workerRemoteConfig))
 
-    // Start worker
-    val model = modelBroadcast.value
-    val worker = workerActorSystem.actorOf(WorkerActor.props(monitorPath, model, index,
-      JavaConversions.asJavaIterator(samples), config), WORKER_ACTOR_NAME)
+    val worker = workerActorSystem.actorOf(WorkerActor.props(modelBroadcast.value, monitorPath, index,
+      JavaConversions.asJavaIterator(samples), config, results), WORKER_ACTOR_NAME)
 
     systemLog("Worker Actor System Started")
 
     //Wait until actor system exit, the work must have been done then.
     workerActorSystem.awaitTermination()
 
-    // return a dummy result
-    val dummy = new Array[Int](0)
-    dummy.iterator
+    results.iterator()
   }
 
   private def systemLog(msg: String) {

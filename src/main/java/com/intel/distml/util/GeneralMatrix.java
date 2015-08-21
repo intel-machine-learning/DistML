@@ -100,27 +100,39 @@ public class GeneralMatrix<T> extends Matrix {
         System.out.println("dims: " + dims[0] + ", " + dims[1]);
         System.out.println("keys: " + _rows + ", " + _cols);
 
-        T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
-        Iterator<Long> rIt = _rows.iterator();
-        int i = 0;
-        while (rIt.hasNext()) {
-            int r = rIt.next().intValue();
+        if (_rows instanceof KeyRange) {
+            T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
+            Iterator<Long> rIt = _rows.iterator();
+            int i = 0;
+            while (rIt.hasNext()) {
+                int r = rIt.next().intValue();
 
-            Iterator<Long> cIt = _cols.iterator();
-            int j = 0;
-            while (cIt.hasNext()) {
-                int c = cIt.next().intValue();
-                _v[i][j] = element(r, c);
-                j++;
+                Iterator<Long> cIt = _cols.iterator();
+                int j = 0;
+                while (cIt.hasNext()) {
+                    int c = cIt.next().intValue();
+                    _v[i][j] = element(r, c);
+                    j++;
+                }
+                i++;
             }
-            i++;
-        }
 
-        GeneralMatrix<T> result = (GeneralMatrix<T>) createEmptySubMatrix();
-        result.values = _v;
-        result.rowKeys = (KeyRange) _rows;
-        result.colKeys = (KeyRange) _cols;
-        return result;
+            GeneralMatrix<T> result = (GeneralMatrix<T>) createEmptySubMatrix();
+            result.values = _v;
+            result.rowKeys = (KeyRange) _rows;
+            result.colKeys = (KeyRange) _cols;
+            return result;
+        }
+        else { // suppose it is KeyList
+            HashMapMatrix<T[]> hm = new HashMapMatrix<T[]>();
+            Iterator<Long> it = _rows.iterator();
+            while(it.hasNext()) {
+                long key = it.next();
+                int index = (int) (key - rowKeys.firstKey);
+                hm.put(key, values[index]);
+            }
+            return hm;
+        }
     }
 
     @Override
@@ -238,8 +250,8 @@ public class GeneralMatrix<T> extends Matrix {
                 return true;
             }
 
-            long newFirst = Math.max(keys1.lastKey, keys2.lastKey);
-            long newLast = Math.min(keys1.firstKey, keys2.firstKey);
+            long newFirst = Math.min(keys1.firstKey, keys2.firstKey);
+            long newLast = Math.max(keys1.lastKey, keys2.lastKey);
             int newSize = (int) (newLast - newFirst);
             int[] dims = new int[] {newSize, (int)colKeys.size()};
             T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
@@ -254,7 +266,7 @@ public class GeneralMatrix<T> extends Matrix {
 
                 int offset = (int) (keys2.firstKey - keys1.firstKey);
                 if (keys2.lastKey > keys1.lastKey) {
-                    for (int i = (int)keys1.size(); i < (keys2.lastKey - keys1.lastKey); i++) {
+                    for (int i = (int)keys1.size(); i < (keys2.lastKey); i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
                             _v[i][j] = mValues[i - offset][j];
                         }
@@ -268,9 +280,9 @@ public class GeneralMatrix<T> extends Matrix {
                     }
                 }
 
-                if (keys2.lastKey > keys1.lastKey) {
+                if (keys1.lastKey > keys2.lastKey) {
                     int offset = (int) (keys1.firstKey - keys2.firstKey);
-                    for (int i = (int)keys2.size(); i < (keys1.lastKey - keys2.lastKey); i++) {
+                    for (int i = (int)keys2.size(); i < (keys1.lastKey); i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
                             _v[i][j] = values[i - offset][j];
                         }

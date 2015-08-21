@@ -14,16 +14,17 @@ import com.intel.distml.util.Matrix;
  */
 public class Rosenblatt extends Model {
 
-    private class SensorNodes extends DParam {
+    public class SensorNodes extends DParam {
 
         public SensorNodes() {
-            super(dim);
+            super(dim+1);
         }
 
         @Override
         public void initOnServer(int psIndex, KeyCollection keys) {
 
-            Double w[] = new Double[dim+1];
+            int dim = (int)keys.size();
+            Double w[] = new Double[dim + 1];
             for (int i = 0; i <= dim; i++){
                 w[i] = ((double)(Math.random()-.5));
             }
@@ -41,7 +42,6 @@ public class Rosenblatt extends Model {
     int dim;
 
     public Rosenblatt(int dim) {
-
         registerMatrix(Model.MATRIX_PARAM, new SensorNodes());
     }
 
@@ -54,7 +54,7 @@ public class Rosenblatt extends Model {
     }
 
     @Override
-    public void compute(Matrix s, int workerIndex, DataBus dataBus) {
+    public void compute(Matrix s, int workerIndex, DataBus dataBus, int iter) {
 
         Weights weights = (Weights) getMatrix(MATRIX_PARAM).localCache;
 
