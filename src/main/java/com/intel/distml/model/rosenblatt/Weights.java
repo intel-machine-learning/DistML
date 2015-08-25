@@ -1,6 +1,9 @@
 package com.intel.distml.model.rosenblatt;
 
 import com.intel.distml.util.GeneralArray;
+import com.intel.distml.util.KeyCollection;
+
+import java.util.Iterator;
 
 /**
  * Created by yunlong on 2/4/15.
@@ -15,8 +18,11 @@ public class Weights extends GeneralArray<Double> {
     }
 
     public void mergeUpdates(Weights updates) {
-        for (int i = 0; i < rowKeys.size(); i++) {
-            values[i] += updates.values[i];
+        Iterator<Long> it = updates.rowKeys.iterator();
+
+        while(it.hasNext()) {
+            int k = it.next().intValue();
+            setElement(k, element(k) + updates.element(k));
         }
     }
 
