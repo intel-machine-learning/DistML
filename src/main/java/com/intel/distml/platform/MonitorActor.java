@@ -192,7 +192,9 @@ public class MonitorActor extends UntypedActor {
     MonitorDataBus dataBus = new MonitorDataBus() {
         public void broadcast(String name, Object value) {
             for (ActorRef worker : workers) {
-                worker.tell(new VariableChange(name, value), getSelf());
+                if (worker != null) {
+                    worker.tell(new VariableChange(name, value), getSelf());
+                }
             }
         }
     };

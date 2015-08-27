@@ -101,8 +101,10 @@ public class SparseLRModel extends Model {
 
         Matrix weights = getCache(Model.MATRIX_PARAM);
         HashMapMatrix.KeySet keys = (HashMapMatrix.KeySet) weights.getRowKeys();
-        KeyCollection[] sets = keys.split(200);
+        int num = (int) weights.getRowKeys().size() / 100000 + 1;
+        KeyCollection[] sets = keys.split(num);
         for (KeyCollection set : sets) {
+            if (set == null) break;
             System.out.println("push weights: " + set.size());
             dataBus.pushUpdate(Model.MATRIX_PARAM, weights.subMatrix(set, KeyCollection.ALL));
             System.out.println("push done");
