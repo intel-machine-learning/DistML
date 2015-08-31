@@ -54,9 +54,9 @@ object LocalLDA {
     config.psCount(1);
 //    config.workerCount(1)//it does not work now,dependent on partition number
 
-    val m: Model = new LDAModel(0.5f, 0.1f,K,dic)
+    val m: Model = new LDAModel(0.5f, 0.1f,K,dic.getSize)
 
-    TrainingHelper.startTraining(spark, m, rddTopic, config,new LDAModelWriter);
+    TrainingHelper.startTraining(spark, m, rddTopic, config,new LDAModelWriter(dic));
 //    TrainingHelper.startTraining(spark, m, rddTopic, config,new LDAModelWriter());
     System.out.println("LDA has ended!")
   }

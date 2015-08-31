@@ -28,6 +28,12 @@ public class LDAModelWriter implements ModelWriter {
         }
     }
 
+    Dictionary dict;
+
+    public LDAModelWriter(Dictionary dict) {
+        this.dict = dict;
+    }
+
     @Override
     public void writeModel(Model model, ServerDataBus dataBus) {
         for (String matrixName: model.dataMap.keySet()) {
@@ -77,7 +83,7 @@ public class LDAModelWriter implements ModelWriter {
                 for(int i=0;i<values.length;i++) {
 
                     StringBuilder tmp = new StringBuilder();
-                    tmp.append(((LDAModel)model).dict.getWord(i));
+                    tmp.append(dict.getWord(i));
                     tmp.append(":");
                     for(int j = 0;j<values[i].length;j++) {
                         tmp.append(values[i][j]);
@@ -101,7 +107,7 @@ public class LDAModelWriter implements ModelWriter {
                 bw = new BufferedWriter(new FileWriter(new File("rank-" + filePath)));
 
 
-                int Num=((LDAModel)model).dict.getSize() > 5?5:((LDAModel)model).dict.getSize();
+                int Num = dict.getSize() > 5? 5 : dict.getSize();
                 Pair[] rankedWords = new Pair[Num];
                 for(int i = 0;i < Num;i++){
                     rankedWords[i]=new Pair(0,0);
@@ -121,7 +127,7 @@ public class LDAModelWriter implements ModelWriter {
                             rankedWords[j].wordID=pos;
                             rankedWords[j].count=max;
                             values[pos][i]=0;//remove  the max number
-                            bw.write(((LDAModel) model).dict.getWord(pos) + ":" +max);
+                            bw.write(dict.getWord(pos) + ":" + max);
                             bw.newLine();
                         }
                     }

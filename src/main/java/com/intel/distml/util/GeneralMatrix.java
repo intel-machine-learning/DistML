@@ -252,7 +252,7 @@ public class GeneralMatrix<T> extends Matrix {
 
             long newFirst = Math.min(keys1.firstKey, keys2.firstKey);
             long newLast = Math.max(keys1.lastKey, keys2.lastKey);
-            int newSize = (int) (newLast - newFirst);
+            int newSize = (int) (newLast - newFirst + 1);
             int[] dims = new int[] {newSize, (int)colKeys.size()};
             T[][] _v = (T[][]) Array.newInstance(values[0][0].getClass(), dims);
 
@@ -264,11 +264,13 @@ public class GeneralMatrix<T> extends Matrix {
                     }
                 }
 
-                int offset = (int) (keys2.firstKey - keys1.firstKey);
                 if (keys2.lastKey > keys1.lastKey) {
-                    for (int i = (int)keys1.size(); i < (keys2.lastKey); i++) {
+                    int _offset = (int) keys1.size();
+                    int offset = (int) (keys1.lastKey - keys2.firstKey + 1);
+                    int count = (int) (keys2.lastKey - keys1.lastKey);
+                    for (int i = 0; i < count; i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
-                            _v[i][j] = mValues[i - offset][j];
+                            _v[i + _offset][j] = mValues[i + offset][j];
                         }
                     }
                 }
@@ -281,10 +283,12 @@ public class GeneralMatrix<T> extends Matrix {
                 }
 
                 if (keys1.lastKey > keys2.lastKey) {
-                    int offset = (int) (keys1.firstKey - keys2.firstKey);
-                    for (int i = (int)keys2.size(); i < (keys1.lastKey); i++) {
+                    int _offset = (int) keys2.size();
+                    int offset = (int) (keys2.lastKey - keys1.firstKey + 1);
+                    int count = (int) (keys1.lastKey - keys2.lastKey);
+                    for (int i = 0; i < count; i++) {
                         for (int j = 0; j < colKeys.size(); j++) {
-                            _v[i][j] = values[i - offset][j];
+                            _v[i + _offset][j] = values[i + offset][j];
                         }
                     }
                 }

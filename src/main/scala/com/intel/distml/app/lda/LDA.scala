@@ -1,6 +1,6 @@
 package com.intel.distml.app.lda
 
-import com.intel.distml.api.Model
+import com.intel.distml.api.{BigModelWriter, Model}
 import com.intel.distml.model.lda.{LDAModel, LDADataMatrix, Dictionary}
 import com.intel.distml.platform.{TrainingContext, TrainingHelper}
 import org.apache.spark.{SparkContext, SparkConf}
@@ -14,11 +14,12 @@ import scala.collection.mutable.ListBuffer
 object LDA {
 
   def normalizeString(src : String) : String = {
-    src.replaceAll("[^A-Z,^a-z]", " ").trim().toLowerCase();
+    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase();
   }
 
   var dic = new Dictionary()
-  val K=10//topic number
+  val K = 2000   //topic number
+
   def main(args: Array[String]) {
 
     var sparkMaster = args(0)
@@ -31,7 +32,7 @@ object LDA {
     val conf = new SparkConf()
       .setMaster(sparkMaster)
       .setAppName("LDA")
-      .set("spark.executor.memory", "10g")
+      .set("spark.executor.memory", sparkMem)
       .set("spark.home", sparkHome)
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .setJars(Seq(appJars))
@@ -41,7 +42,7 @@ object LDA {
 
     println("====================start:  ==========")
 //    val trainingFile: String = "hdfs://dl-s1:9000/usr/ruixiang/lda/newdocs2.dat"
-    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/WestburyLab.wikicorp.201004"
+    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/wiki_1000000"
 
     var rawLines = spark.textFile(trainingFile).map(normalizeString).filter(s => s.length > 0)
 //    rawLines = rawLines.repartition(2);
@@ -51,19 +52,23 @@ object LDA {
     words.foreach(x=>dic.addWord(x))
 
     println("====================the word number: " + words.size + " ==========")
+    for (i <- 0 to 99)
+    println(words(i))
 
     var rddTopic = rawLines.mapPartitions(transFromString2LDAData)
     //rddTopic=rddTopic.repartition(1);
 
     val config: TrainingContext = new TrainingContext();
-    config.iteration(100);
+    config.iteration(1);
     config.miniBatchSize(20);
     config.psCount(1);
 //    config.workerCount(1)
 
-    val m: Model = new LDAModel(0.5f, 0.1f,K,dic)
+    val m: Model = new LDAModel(0.5f, 0.1f, K, dic.getSize)
 
-    TrainingHelper.startTraining(spark, m, rddTopic, config);
+    val writer = new BigModelWriter();
+    writer.setParamRowSize(LDAModel.MATRIX_PARAM_WORDTOPIC, K * 10);
+    TrainingHelper.startTraining(spark, m, rddTopic, config, writer);
     System.out.println("LDA has ended!")
 
   }

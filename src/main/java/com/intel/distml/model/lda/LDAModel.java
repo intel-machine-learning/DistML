@@ -20,25 +20,24 @@ public class LDAModel extends Model {
     private float alpha;
     private float beta;
     private int K;
-    public Dictionary dict;
-
+    private int vocabularySize;
 
     private float[] p;//temp variables for sampling
 
-    public LDAModel(float _alpha,float _beta,int _K,Dictionary _dict){
+    public LDAModel(float _alpha, float _beta, int _K, int _v){
 
         dataSetImmutable = false;
-        this.autoFetchParams=false;
-        this.autoPushUpdates=false;
+        this.autoFetchParams = false;
+        this.autoPushUpdates = false;
 
-        this.alpha=_alpha;
-        this.beta=_beta;
-        this.K=_K;
-        this.dict=_dict;
-        this.p=new float[_K];
+        this.alpha =_alpha;
+        this.beta =_beta;
+        this.K =_K;
+        this.p = new float[_K];
+        this.vocabularySize = _v;
 
-        registerMatrix(LDAModel.MATRIX_PARAM_WORDTOPIC,new ParamWordTopic(dict.getSize(),K));
-        registerMatrix(LDAModel.MATRIX_PARAM_TOPIC,new ParamTopic(K));
+        registerMatrix(LDAModel.MATRIX_PARAM_WORDTOPIC, new ParamWordTopic(vocabularySize, K));
+        registerMatrix(LDAModel.MATRIX_PARAM_TOPIC, new ParamTopic(K));
 
     }
 
@@ -118,70 +117,48 @@ public class LDAModel extends Model {
         dataBus.pushUpdate(LDAModel.MATRIX_PARAM_TOPIC,topicsUpdate);
 
     }
+
     //Help functions
-    LDADataMatrix sampling(LDADataMatrix ldaData,HashMapMatrix wordTopics,Topic topics){
-//        System.out.print("before gibbs sampling,the topics are ");
-//        for(int i=0;i<ldaData.topics.length;i++)System.out.print(ldaData.topics[i]+",");
-//        System.out.println();
-//
-//        System.out.print("before gibbs sampling topic array:");
-//        for(int i=0;i<K;i++)System.out.print(topics.element(i)+",");
-//        System.out.println();
+    LDADataMatrix sampling(LDADataMatrix ldaData, HashMapMatrix wordTopics, Topic topics){
 
-        long start=System.currentTimeMillis();
+        Integer[] numTopic = (Integer[])topics.values;
+        int[] numDocTopic = ldaData.nDocTopic;
+        for(int i = 0; i < ldaData.words.length; i++) {
 
-        Integer[] numTopic=(Integer[])topics.values;
-        int[] numDocTopic=ldaData.nDocTopic;
-        for(int i=0;i<ldaData.words.length;i++){
+            int topic = ldaData.topics[i];
+            int wordID = ldaData.words[i];
 
-            int topic=ldaData.topics[i];
-            int wordID=ldaData.words[i];
-
-            Integer[] thisWordTopics=(Integer[])wordTopics.get(wordID);
+            Integer[] thisWordTopics = (Integer[])wordTopics.get(wordID);
 
             numTopic[topic]--;
             thisWordTopics[topic]--;
             numDocTopic[topic]--;
 
-            float Vbeta = dict.getSize() * this.beta;
-//            System.out.println("Vbeta:" + Vbeta + "beta: " + this.beta +" dict size:" +dict.getSize());
+            float Vbeta = vocabularySize * this.beta;
             float Kalpha = this.K * this.alpha;
 
-            for(int k=0;k<K;k++){
+            for(int k = 0; k < K; k++) {
                 this.p[k] = (thisWordTopics[k] + beta) / (numTopic[k] + Vbeta) *
                         (numDocTopic[k] + alpha) / (ldaData.words.length - 1 + Kalpha);
-//               if(wordID==0)System.out.println("======" + (thisWordTopics[k] + beta) + "/" + numTopic[k] + "+" + Vbeta +
-//                       "*" + (numDocTopic[k] + alpha) + "/" + (ldaData.words.length - 1 + Kalpha) + "===the P is: "+ this.p[k] +"========");
             }
 
-            for(int k=1;k<K;k++){
-                this.p[k]+=this.p[k-1];
+            for (int k = 1; k < K; k++) {
+                this.p[k] += this.p[k-1];
             }
 
-            double u=Math.random()*this.p[K-1];
-//            double u=0.4*this.p[K-1];
+            double u = Math.random() * this.p[K-1];
 
-            for(topic=0;topic<K;topic++){
-                if(p[topic]>=u)break;
+            for(topic = 0; topic < K; topic++){
+                if(p[topic] >= u)  break;
             }
 
-            if(topic==K)System.out.println("max p: " +this.p[K-1] + " u: " + u);
             numTopic[topic]++;
             thisWordTopics[topic]++;
             numDocTopic[topic]++;
 
-            ldaData.topics[i]=topic;
+            ldaData.topics[i] = topic;
         }
 
-//        System.out.print("after gibbs sampling topic array:");
-//        for(int i=0;i<K;i++)System.out.print(topics.element(i)+",");
-//        System.out.println();
-//
-//        System.out.print("after gibbs sampling,the topics are ");
-//        for(int i=0;i<ldaData.topics.length;i++)System.out.print(ldaData.topics[i]+",");
-//        System.out.println();
-
-        System.out.println("LDA compute with time :" + (System.currentTimeMillis() - start));
         return ldaData;
     }
 
