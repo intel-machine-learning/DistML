@@ -1,6 +1,7 @@
 package com.intel.distml.platform
 
 import com.intel.distml.api.{DMatrix, DefaultModelWriter, ModelWriter, Model}
+import com.intel.distml.platform.MonitorActor.IterationDone
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import scala.collection.JavaConversions
@@ -32,18 +33,8 @@ object TrainingHelper {
     """.stripMargin
 
   var monitorActorPath = ""
-  var dataSetImmutable = true
-
-//  def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingContext,modelWriter: ModelWriter = new DefaultModelWriter()): Unit = {
-//
-//    startTraining(spark, model, samples, config, modelWriter);
-//    dataSetImmutable = model.dataSetImmutable
-//
-//  }
 
   def startTraining[T:ClassTag](spark : SparkContext, model : Model, samples: RDD[T], config : TrainingContext, modelWriter : ModelWriter=new DefaultModelWriter): Unit = {
-
-    dataSetImmutable = model.dataSetImmutable
 
     config.workerCount(samples.partitions.length)
 
@@ -81,9 +72,12 @@ object TrainingHelper {
     monitorActorPath = monitorActorRef.path.toSerializationFormatWithAddress(address)
     systemLog("Monitor Actor System Started")
 
-    // Start monitor
-    val workerStarterActorRef = monitorActorSystem.actorOf(WorkerStarter.props(monitorActorPath,
-      new DistMLListener(spark, samples, modelBroadcast, config, modelWriter)), WORKER_STARTER_ACTOR_NAME)
+    val slave = new DistMLListener(spark, samples, modelBroadcast, model, config, modelWriter);
+    val runner = monitorActorSystem.actorOf(Props(new TrainingRunner(spark, samples, modelBroadcast, model, monitorActorPath, config, modelWriter, slave)))
+
+//    // Start monitor
+//    val workerStarterActorRef = monitorActorSystem.actorOf(WorkerStarter.props(monitorActorPath,
+//      runner), WORKER_STARTER_ACTOR_NAME)
 
     startParameterServers(spark, modelBroadcast, monitorActorPath, config.psCount);
 
@@ -96,14 +90,22 @@ object TrainingHelper {
     (new ParamServerDriver(spark, modelBroadcast, ACTOR_SYSTEM_CONFIG, monitor, psCount)).start()
   }
 
-  class DistMLListener[T:ClassTag] (spark : SparkContext, samples: RDD[T], modelBroadcast : Broadcast[Model],
-                                    context : TrainingContext, modelWriter : ModelWriter) extends WorkerStarter.Callback with Serializable{
-/*
-    override def monitorReady(): Unit = {
-      // start parameter servers
-      startParameterServers(spark, monitorActorPath, context.psCount);
+  class DistMLListener[T:ClassTag] (spark : SparkContext, samples: RDD[T], modelBroadcast : Broadcast[Model], model: Model,
+                                    context : TrainingContext, modelWriter : ModelWriter) extends RunnerSlave with Serializable{
+
+    var tmp = samples
+
+    def runIter(): Unit = {
+      if (model.dataSetImmutable) {
+        samples.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).collect
+      }
+      else {
+        //tmp = tmp.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).repartition(context.workerCount)
+        tmp = tmp.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context))
+        tmp.collect
+      }
     }
-*/
+/*
     override def parameterServersReady(): Unit = {
 
       println("parameter servers are ready, start training now. ")
@@ -112,7 +114,7 @@ object TrainingHelper {
       for (iter <- 0 to context.iteration - 1) {
         systemLog("iteration " + iter)
         context.currentIter = iter
-        if (dataSetImmutable) {
+        if (model.dataSetImmutable) {
           samples.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).collect
         }
         else {
@@ -120,13 +122,14 @@ object TrainingHelper {
           tmp.collect
 
         }
+
         systemLog("iteration done " + iter)
       }
 
       systemLog("training work done")
     }
+*/
   }
-
 
   def startWorkers[T:ClassTag](spark : SparkContext, samples: RDD[T], modelBroadcast : Broadcast[Model],config : TrainingContext, modelWriter : ModelWriter) {
     println("start new iteration.");

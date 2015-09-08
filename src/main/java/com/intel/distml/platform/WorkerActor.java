@@ -20,6 +20,8 @@ import com.intel.distml.util.Logger;
 import com.intel.distml.util.Matrix;
 import scala.concurrent.duration.Duration;
 
+import javax.management.RuntimeErrorException;
+
 /**
  * Created by yunlong on 12/13/14.
  */
@@ -237,14 +239,21 @@ public class WorkerActor<T> extends UntypedActor {
 
                     //log("Tell worker lead training is done");
                     progressReminder.cancel();
-                    monitor.tell(new MonitorActor.WorkerIterationDone(workerIndex, context.currentIter), getSelf());
+                    //monitor.tell(new MonitorActor.WorkerIterationDone(workerIndex, context.currentIter), getSelf());
+                    getContext().stop(getSelf());
                 }
 
                 return;
             }
+/*
             else if (msg instanceof MonitorActor.Stop) {
+                log("stop: " + ((MonitorActor.Stop)msg).time);
+                if (trainingThread.isAlive()) {
+                    throw new RuntimeException("Incorrect stop command received");
+                }
                 getContext().stop(getSelf());
             }
+*/
         }
         else unhandled(msg);
 	}

@@ -13,6 +13,8 @@ import scala.collection.mutable.ListBuffer
  */
 object LDA {
 
+  var testDoc = "alt.atheism     re who has read rushdie s the satanic verses in article vice ico tek com bobbe vice ico tek com robert beauchaine wrote in article edm apr gocart twisto compaq com edm twisto compaq com ed mccreary writes while we re on the topic of books has anyone else noticed that paine s the age of reason is hard to find i ve been wanting to pick up a copy for a while but not bad enough to mail order it i ve noticed though that none of the bookstores i go to seem to carry it i thought this was supposed to be classic what s the deal me too our local used book store is the second largest on the west coast and i couldn t find a copy there i guess atheists hold their bibles in as much esteem as the theists if i remember correctly prometheus books have this one in stock so just call them and ask for the book cheers kent sandvik newton apple com alink ksand private activities on the net"
+
   def normalizeString(src : String) : String = {
     src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase();
   }
@@ -42,7 +44,8 @@ object LDA {
 
     println("====================start:  ==========")
 //    val trainingFile: String = "hdfs://dl-s1:9000/usr/ruixiang/lda/newdocs2.dat"
-    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/wiki_1000000"
+//    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/wiki_1000000"
+    val trainingFile: String = "hdfs://dl-s1:9000/data/text/20ng-train-all-terms.txt"
 
     var rawLines = spark.textFile(trainingFile).map(normalizeString).filter(s => s.length > 0)
 //    rawLines = rawLines.repartition(2);
@@ -52,15 +55,13 @@ object LDA {
     words.foreach(x=>dic.addWord(x))
 
     println("====================the word number: " + words.size + " ==========")
-    for (i <- 0 to 99)
-    println(words(i))
 
     var rddTopic = rawLines.mapPartitions(transFromString2LDAData)
     //rddTopic=rddTopic.repartition(1);
 
     val config: TrainingContext = new TrainingContext();
     config.iteration(1);
-    config.miniBatchSize(20);
+    config.miniBatchSize(200);
     config.psCount(1);
 //    config.workerCount(1)
 
@@ -71,25 +72,27 @@ object LDA {
     TrainingHelper.startTraining(spark, m, rddTopic, config, writer);
     System.out.println("LDA has ended!")
 
+    spark.stop()
   }
 
-  def transFromString2LDAData(itr:Iterator[String])={
-    var lst=ListBuffer[LDADataMatrix]();
+
+  def transFromString2LDAData(itr:Iterator[String]) = {
+    var lst = ListBuffer[LDADataMatrix]();
 
     while(itr.hasNext) {
-      val line=itr.next();
-      val words=line.split(" ")
+      val line = itr.next();
+      val words = line.split(" ")
 
-      var wordIDs=new ListBuffer[Int]();
-      words.foreach(x=>wordIDs+=dic.addWord(x))
+      var wordIDs = new ListBuffer[Int]();
+      words.foreach(x => wordIDs += dic.addWord(x))
 
-      val topics=new ListBuffer[Int]()
-      wordIDs.foreach(x=>topics+=Math.floor(Math.random()*K).toInt)
+      val topics = new ListBuffer[Int]()
+      wordIDs.foreach(x => topics += Math.floor(Math.random()*K).toInt)
 
-      val doctopic=new Array[Int](K)
-      topics.foreach(x=>doctopic(x)=doctopic(x)+1)
+      val doctopic = new Array[Int](K)
+      topics.foreach(x => doctopic(x) = doctopic(x) + 1)
 
-      lst += new LDADataMatrix(topics.toArray,wordIDs.toArray,doctopic)
+      lst += new LDADataMatrix(topics.toArray, wordIDs.toArray, doctopic)
 
     }
     lst.iterator

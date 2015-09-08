@@ -104,7 +104,9 @@ public class MonitorActor extends UntypedActor {
     public static class Stop extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
+        public long time;
         public Stop() {
+            this.time = System.currentTimeMillis();
         }
 
         public String toString() {
@@ -149,7 +151,7 @@ public class MonitorActor extends UntypedActor {
 
     private String appId;
     private int psCount;
-    private int workerCount;
+//    private int workerCount;
     private long totalSamples;
     private long progress;
 
@@ -160,9 +162,9 @@ public class MonitorActor extends UntypedActor {
     private InetSocketAddress[] psAddrs;
     private ActorRef[] serverDataBuses;
 
-    private ActorRef[] workers;
+    private LinkedList<ActorRef> workers;
 
-    private int[] trainingProgress;
+//    private int[] trainingProgress;
 
     private Model model;
     private ModelWriter modelWriter;
@@ -185,7 +187,7 @@ public class MonitorActor extends UntypedActor {
     private class InnerStateData {
         State currentState = State.CREATED;
         int psCounter = 0;
-        int workerCounter = 0;
+//        int workerCounter = 0;
     }
     private InnerStateData innerState = new InnerStateData();
 
@@ -204,11 +206,11 @@ public class MonitorActor extends UntypedActor {
     public MonitorActor(String appId, Model model, TrainingContext context, ModelWriter modelWriter) {
         this.appId = appId;
         this.psCount = context.psCount;
-        this.workerCount = context.workerCount;
+//        this.workerCount = context.workerCount;
         this.parameterServers = new ActorRef[psCount];
         this.psAddrs = new InetSocketAddress[psCount];
-        this.workers = new ActorRef[workerCount];
-        this.trainingProgress = new int[workerCount];
+        this.workers = new LinkedList<ActorRef>();
+//        this.trainingProgress = new int[workerCount];
 
         this.model = model;
         this.modelWriter = modelWriter;
@@ -218,9 +220,9 @@ public class MonitorActor extends UntypedActor {
 
         setState(State.CREATED);
         innerState.psCounter = 0;
-        innerState.workerCounter = 0;
+//        innerState.workerCounter = 0;
 
-        log("Monitor created, psCount:" + psCount + " workerCount: " + workerCount);
+        log("Monitor created, psCount:" + psCount);
         //this.modelSender = getContext().actorOf(ModelSender.props(getSelf(), model));
 
     }
@@ -236,7 +238,9 @@ public class MonitorActor extends UntypedActor {
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        log("onReceive: " + msg + ", " + innerState.currentState + ", " + getSender());
+        log("onReceive: " + msg + ", " + innerState.currentState + ", "
+                + innerState.psCounter + ", "
+                + getSender() );
         if (innerState.currentState == State.CREATED) {
             if (msg instanceof WorkerStarterRegister) {
                 this.workerStarter = getSender();
@@ -275,39 +279,44 @@ public class MonitorActor extends UntypedActor {
         else if (innerState.currentState == State.MONITOR_TRAINING) {
             if (msg instanceof WorkerActor.RegisterRequest) {
                 WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
-                log("worker registered: " + info.globalWorkerIndex);
+                //log("worker registered: " + info.globalWorkerIndex);
 
-                workers[info.globalWorkerIndex] = getSender();
+                workers.add(getSender());
+                //workers[info.globalWorkerIndex] = getSender();
                 getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
             }
             else if (msg instanceof WorkerActor.ProgressReport) {
                 int p = ((WorkerActor.ProgressReport) msg).trained;
                 progress += p;
-                log("progress: " + p + "[" + progress + "] from " + getSender());
-                WorkerActor.ProgressReport report = (WorkerActor.ProgressReport)msg;
-                trainingProgress[report.workerIndex] = report.totalTrained;
+                log("progress: " + progress + "[" + totalSamples + "] from " + getSender());
+                //WorkerActor.ProgressReport report = (WorkerActor.ProgressReport)msg;
+                //trainingProgress[report.workerIndex] = report.totalTrained;
 
                 model.progress(totalSamples, progress, dataBus);
-            } else if (msg instanceof WorkerIterationDone) {
-                innerState.workerCounter++;
-                if (innerState.workerCounter == workerCount) {
-                    innerState.workerCounter = 0;
-                    innerState.psCounter = 0;
+            } else if (msg instanceof IterationDone) {
+                innerState.psCounter = 0;
+                workers.clear();
+                progress = 0;
 
-                    IterationDone notify = new IterationDone(((WorkerIterationDone)msg).iter);
-                    for (ActorRef ps : parameterServers) {
-                        ps.tell(notify, getSelf());
-                    }
+                for (ActorRef ps : parameterServers) {
+                    ps.tell(msg, getSelf());
                 }
             } else if (msg instanceof IterationDoneAck) {
                 innerState.psCounter++;
                 if (innerState.psCounter == psCount) {
                     innerState.psCounter = 0;
 
+                    //log("Notify workers to start again");
+                    workerStarter.tell(msg, getSelf());
+/*
                     Stop req = new Stop();
+                    log("Notify workers to stop: " + req.time);
                     for (ActorRef w : workers) {
                         w.tell(req, getSelf());
                     }
+//                    innerState.workerCounter = 0;
+*/
+                    innerState.psCounter = 0;
                 }
 
             } else if (msg instanceof TrainingDone) {
@@ -343,9 +352,9 @@ public class MonitorActor extends UntypedActor {
         if (newState == State.INIT_PARAMETER_SERVER) {
             innerState.psCounter = 0;
         }
-        else if (newState == State.MONITOR_TRAINING) {
-            innerState.workerCounter = 0;
-        }
+//        else if (newState == State.MONITOR_TRAINING) {
+//            innerState.workerCounter = 0;
+//        }
     }
 
     private void saveModel() {
@@ -370,8 +379,8 @@ public class MonitorActor extends UntypedActor {
         stopActors(parameterServers);
         log("All parameter servers stopped");
 
-        stopActors(workers);
-        log("All workers stopped");
+//        stopActors(workers);
+//        log("All workers stopped");
 
         getContext().stop(getSelf());
         log("Start stopping monitor");

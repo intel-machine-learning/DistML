@@ -10,10 +10,11 @@ public class LDADataMatrix extends Matrix {
     public int[] topics;
     public int[] words;
     int[] nDocTopic;//spec:maybe [][],but doc is only one.
-    public LDADataMatrix(int[] _topic,int[] _words,int[] _docTopic){
-        topics=_topic;
-        words=_words;
-        nDocTopic=_docTopic;
+
+    public LDADataMatrix(int[] _topic, int[] _words, int[] _docTopic) {
+        topics = _topic;
+        words = _words;
+        nDocTopic = _docTopic;
     }
 
     @Override

@@ -14,26 +14,26 @@ public class ParamTopic extends DMatrix {
     private int K;//topic number
 
     public ParamTopic(int _K) {
-        super(DMatrix.FLAG_ON_SERVER|DMatrix.FLAG_PARAM,_K);
-        K=_K;
+        super(DMatrix.FLAG_ON_SERVER | DMatrix.FLAG_PARAM, _K);
+        K = _K;
     }
 
     @Override
     public void initOnServer(int psIndex, KeyCollection keys) {
-        System.out.println("Init Param Topic on server index "+psIndex
-                +" with key range from "+((KeyRange)keys).firstKey +" to "+((KeyRange)keys).lastKey);
-        long first=((KeyRange)keys).firstKey;
-        long last=((KeyRange)keys).lastKey;
-        Integer[] topic=new Integer[(int)(last-first+1)];
-        for(int i=(int)first;i<=last;i++){
-            topic[(int)(i-first)]=new Integer(0);
+        System.out.println("Init Param Topic on server index " + psIndex
+                + " with key range from " + ((KeyRange) keys).firstKey + " to " + ((KeyRange) keys).lastKey);
+        long first = ((KeyRange) keys).firstKey;
+        long last = ((KeyRange) keys).lastKey;
+        Integer[] topic = new Integer[(int) (last - first + 1)];
+        for (int i = (int) first; i <= last; i++) {
+            topic[(int) (i - first)] = new Integer(0);
         }
-        setLocalCache(new Topic(topic,(KeyRange)(keys)));
+        setLocalCache(new Topic(topic, (KeyRange) (keys)));
     }
 
     @Override
     public void mergeUpdate(int serverIndex, Matrix update) {
-        ((Topic)localCache).mergeUpdate(serverIndex,(Topic)update);
+        ((Topic) localCache).mergeUpdate(serverIndex, (Topic) update);
     }
 
 }

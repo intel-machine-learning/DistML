@@ -3,6 +3,7 @@ package com.intel.distml.model.lda;
 /**
  * Created by ruixiang on 5/18/15.
  */
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +24,10 @@ public class Dictionary implements Serializable {
     //---------------------------------------------------
     // get/set methods
     //---------------------------------------------------
-    public int getSize(){return word2id.size();}
+    public int getSize() {
+        return word2id.size();
+    }
+
     public String getWord(int id) {
         return id2word.get(id);
     }
