@@ -4,9 +4,7 @@ DIR=`dirname "$0"`
 
 . $DIR/conf.sh
 
-#CLASSPATH=`bash $LOCAL_SPARK_HOME/bin/compute-classpath.sh`
-#CLASSPATH=libs/spark-assembly-1.0.0-hadoop2.2.0.jar
-CLASSPATH=/home/yunlong/IdeaProjects/scaml/libs/spark-assembly-1.2.1-SNAPSHOT-hadoop2.2.0.jar
+CLASSPATH=/home/spark/projects/spark-1.4/assembly/target/scala-2.10/spark-assembly-1.4.2-SNAPSHOT-hadoop2.2.0.jar
 
 echo "master: $SPARK_MASTER"
 echo "jars: $APP_JARS" 
@@ -22,6 +20,8 @@ elif [ "$1" = "word2vec" ]; then
 	MainClass="com.intel.distml.app.word2vec.EngWords"
 elif [ "$1" = "lda" ]; then
 	MainClass="com.intel.distml.app.lda.LDA"
+elif [ "$1" = "mini20" ]; then
+	MainClass="com.intel.distml.app.lda.Mini20"
 fi
 
 echo ""
