@@ -288,7 +288,7 @@ public class MonitorActor extends UntypedActor {
             else if (msg instanceof WorkerActor.ProgressReport) {
                 int p = ((WorkerActor.ProgressReport) msg).trained;
                 progress += p;
-                log("progress: " + progress + "[" + totalSamples + "] from " + getSender());
+                log("progress: " + p + "[" +progress + ", " + totalSamples + "] from " + getSender());
                 //WorkerActor.ProgressReport report = (WorkerActor.ProgressReport)msg;
                 //trainingProgress[report.workerIndex] = report.totalTrained;
 

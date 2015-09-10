@@ -22,6 +22,8 @@ elif [ "$1" = "lda" ]; then
 	MainClass="com.intel.distml.app.lda.LDA"
 elif [ "$1" = "mini20" ]; then
 	MainClass="com.intel.distml.app.lda.Mini20"
+elif [ "$1" = "ng18828" ]; then
+        MainClass="com.intel.distml.app.lda.NewsGroup18828"
 fi
 
 echo ""
