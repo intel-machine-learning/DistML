@@ -52,7 +52,7 @@ public class LDAModelWriter implements ModelWriter {
 
         if (matrixName == LDAModel.MATRIX_PARAM_TOPIC) {
             Topic t = (Topic) m;
-            Integer[] values = t.values;
+            int[] values = t.values;
 
             StringBuilder tmp = new StringBuilder();
             for (int i = 0; i < values.length; i++) {
@@ -73,7 +73,7 @@ public class LDAModelWriter implements ModelWriter {
 
         if (matrixName == LDAModel.MATRIX_PARAM_WORDTOPIC) {
             WordTopic wt = (WordTopic) m;
-            Integer[][] values = wt.values;
+            int[][] values = wt.values;
             BufferedWriter bw = null;
 
             //write the word-topic matrix

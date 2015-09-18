@@ -3,12 +3,13 @@ package com.intel.distml.model.lda;
 import com.intel.distml.util.GeneralArray;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.KeyRange;
+import com.intel.distml.util.primitive.IntArray;
 
 /**
  * Created by ruixiang on 7/8/15.
  */
-public class Topic extends GeneralArray<Integer> {
-    public Topic(Integer[] _topic, KeyRange keys) {
+public class Topic extends IntArray {
+    public Topic(int[] _topic, KeyRange keys) {
         super(_topic, keys);
     }
 
@@ -16,14 +17,7 @@ public class Topic extends GeneralArray<Integer> {
 
     }
 
-    @Override
-    public Object clone() {
-        if (this.rowKeys instanceof KeyCollection.EMPTY_KEYS) return null;
-        Topic t = new Topic(this.values.clone(), (KeyRange) this.rowKeys);
-        return t;
-    }
-
-    public void mergeUpdate(int serverIndex, Topic t) {
+    public void mergeUpdate(int serverIndex, IntArray t) {
         long first = ((KeyRange) rowKeys).firstKey;
         long last = ((KeyRange) rowKeys).lastKey;
         long keySize = last - first + 1;

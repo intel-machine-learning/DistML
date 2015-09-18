@@ -91,7 +91,7 @@ public class GeneralDataBus {
     }
 
     public boolean pushToRemote(String matrixName, boolean initializeOnly, Matrix data, PartitionInfo partitionInfo, ActorRef[] remotes) {
-        log("pushToRemote: " + data + ", partitionInfo=" + partitionInfo + ", " + data.getRowKeys().size());
+        log("pushToRemote: " + data + ", partitionInfo=" + partitionInfo + ", " + data.getRowKeys().size() + ", " + data.getColKeys().size());
 
         LinkedList<Future<Object>> responseFutures = new LinkedList<Future<Object>>();
 
@@ -130,6 +130,7 @@ public class GeneralDataBus {
                     return false;
                 }
             }
+            log("push done");
             return true;
         } catch (Exception e) {
             e.printStackTrace();

@@ -144,9 +144,7 @@ object NewsGroup18828 {
         val strTok: StringTokenizer = new StringTokenizer(line)
         while (strTok.hasMoreTokens) {
           val token: String = strTok.nextToken
-          println("token: " + token)
           if (dic.contains(token)) {
-            println("add word id")
             wordIDs += dic.getID(token)
             topics += Math.floor(Math.random()*K).toInt
           }

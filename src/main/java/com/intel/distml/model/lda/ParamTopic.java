@@ -5,6 +5,7 @@ import com.intel.distml.util.GeneralArray;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.KeyRange;
 import com.intel.distml.util.Matrix;
+import com.intel.distml.util.primitive.IntArray;
 
 /**
  * Created by ruixiang on 6/17/15.
@@ -22,18 +23,21 @@ public class ParamTopic extends DMatrix {
     public void initOnServer(int psIndex, KeyCollection keys) {
         System.out.println("Init Param Topic on server index " + psIndex
                 + " with key range from " + ((KeyRange) keys).firstKey + " to " + ((KeyRange) keys).lastKey);
+
         long first = ((KeyRange) keys).firstKey;
         long last = ((KeyRange) keys).lastKey;
-        Integer[] topic = new Integer[(int) (last - first + 1)];
+
+        int[] topic = new int[(int) (last - first + 1)];
         for (int i = (int) first; i <= last; i++) {
-            topic[(int) (i - first)] = new Integer(0);
+            topic[(int) (i - first)] = 0;
         }
+
         setLocalCache(new Topic(topic, (KeyRange) (keys)));
     }
 
     @Override
     public void mergeUpdate(int serverIndex, Matrix update) {
-        ((Topic) localCache).mergeUpdate(serverIndex, (Topic) update);
+        ((Topic) localCache).mergeUpdate(serverIndex, (IntArray) update);
     }
 
 }

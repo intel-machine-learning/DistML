@@ -22,6 +22,12 @@ import java.nio.ByteOrder;
 
 public class DataRelay extends UntypedActor {
 
+    public static class CloseAtOnce {
+
+        CloseAtOnce() {
+        }
+    }
+
     private static final int SERIALIZER_BUF_MIN = 4096000;      // 4M
     private static final int SERIALIZER_BUF_MAX = 409600000;      // 400 M
 
@@ -79,6 +85,9 @@ public class DataRelay extends UntypedActor {
         if (msg instanceof Tcp.CommandFailed) {
             log("Connection failed.");
             getContext().stop(getSelf());
+        } else if (msg instanceof CloseAtOnce) {
+            log("closing...");
+            connection.tell(TcpMessage.abort(), getSelf());
         } else if (msg instanceof Tcp.Connected) {
             //System.out.println("Connected: " + getSender());
             connection = getSender();

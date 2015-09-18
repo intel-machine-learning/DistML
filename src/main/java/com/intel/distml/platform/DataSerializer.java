@@ -17,6 +17,8 @@ import com.intel.distml.model.sparselr.SparseWeights;
 import com.intel.distml.model.sparselr.WeightItem;
 import com.intel.distml.model.word2vec.*;
 import com.intel.distml.util.*;
+import com.intel.distml.util.primitive.IntArray;
+import com.intel.distml.util.primitive.IntMatrix;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 
 import java.io.InputStream;
@@ -75,6 +77,7 @@ public class DataSerializer {
         kryo.setReferences(true);
         kryo.setRegistrationRequired(true);
 
+        kryo.register(int[][].class);
         kryo.register(int[].class);
         kryo.register(float[].class);
         kryo.register(Integer[].class);
@@ -93,6 +96,8 @@ public class DataSerializer {
         kryo.register(KeyHash.class);
         kryo.register(KeyRange.class);
         kryo.register(GeneralArray.class);
+        kryo.register(IntArray.class);
+        kryo.register(IntMatrix.class);
 
         kryo.register(DataBusProtocol.FetchModelRequest.class);
         kryo.register(DataBusProtocol.FetchModelResponse.class);

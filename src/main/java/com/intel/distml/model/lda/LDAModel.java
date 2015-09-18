@@ -4,9 +4,12 @@ import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
 import com.intel.distml.api.databus.DataBus;
 import com.intel.distml.util.*;
+import com.intel.distml.util.primitive.IntArray;
+import com.intel.distml.util.primitive.IntMatrix;
 import scala.collection.mutable.ListBuffer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -67,17 +70,18 @@ public class LDAModel extends Model {
         for (int i = 0; i < ldaData.words.length; i++)
             keys.addKey(ldaData.words[i]);
 
-        HashMapMatrix wordTopics = (HashMapMatrix) dataBus.fetchFromServer(LDAModel.MATRIX_PARAM_WORDTOPIC, keys);
-        HashMapMatrix wordTopicsUpdate = null;
-        try {
-            wordTopicsUpdate = (HashMapMatrix) wordTopics.clone();
-        } catch (CloneNotSupportedException e) {
-            e.printStackTrace();
+        HashMapMatrix<int[]> wordTopics = (HashMapMatrix<int[]>) dataBus.fetchFromServer(LDAModel.MATRIX_PARAM_WORDTOPIC, keys);
+        HashMapMatrix wordTopicsUpdate = new HashMapMatrix<int[]>();
+        Iterator<Long> itr = wordTopics.getRowKeys().iterator();
+        while (itr.hasNext()) {
+            long k = itr.next();
+            int[] values = wordTopics.get(k);
+            wordTopicsUpdate.put(k, values.clone());
         }
 
         System.out.println("prefetch topic parameter");
-        Topic topics = (Topic) dataBus.fetchFromServer(LDAModel.MATRIX_PARAM_TOPIC, KeyCollection.ALL);
-        Topic topicsUpdate = (Topic) topics.clone();
+        IntArray topics = (IntArray) dataBus.fetchFromServer(LDAModel.MATRIX_PARAM_TOPIC, KeyCollection.ALL);
+        Topic topicsUpdate = new Topic(topics.values.clone(), (KeyRange)topics.rowKeys);
 
         if (iterationIndex == 0) {
             result.add(initParam(ldaData, wordTopics, topics));
@@ -86,11 +90,11 @@ public class LDAModel extends Model {
         }
         //compute and push word-topic update
 
-        Iterator itr = wordTopicsUpdate.getRowKeys().iterator();
+        itr = wordTopicsUpdate.getRowKeys().iterator();
         while (itr.hasNext()) {
             Long key = (Long) itr.next();
-            Integer[] newValue = (Integer[]) wordTopics.get(key);
-            Integer[] oldValue = (Integer[]) wordTopicsUpdate.get(key);
+            int[] newValue = (int[]) wordTopics.get(key);
+            int[] oldValue = (int[]) wordTopicsUpdate.get(key);
             for (int i = 0; i < newValue.length; i++)
                 oldValue[i] = newValue[i] - oldValue[i];
         }
@@ -102,12 +106,14 @@ public class LDAModel extends Model {
             topicsUpdate.values[i] = topics.values[i] - topicsUpdate.values[i];
         dataBus.pushUpdate(LDAModel.MATRIX_PARAM_TOPIC, topicsUpdate);
 
+        System.out.println("compute done");
+
     }
 
     //Help functions
-    LDADataMatrix sampling(LDADataMatrix ldaData, HashMapMatrix wordTopics, Topic topics) {
+    LDADataMatrix sampling(LDADataMatrix ldaData, HashMapMatrix wordTopics, IntArray topics) {
 
-        Integer[] numTopic = (Integer[]) topics.values;
+        int[] numTopic = topics.values;
         int[] numDocTopic = ldaData.nDocTopic;
         for (int i = 0; i < ldaData.words.length; i++) {
 
@@ -149,23 +155,28 @@ public class LDAModel extends Model {
         return ldaData;
     }
 
-    LDADataMatrix initParam(LDADataMatrix ldaData, HashMapMatrix wordTopics, Topic topics) {
+    LDADataMatrix initParam(LDADataMatrix ldaData, HashMapMatrix wordTopics, IntArray topics) {
         System.out.println("init LDA Param");
 
-        Integer[] numTopic = (Integer[]) topics.values;
         for (int i = 0; i < ldaData.words.length; i++) {
-            Integer[] thisWordTopics = (Integer[]) wordTopics.get(ldaData.words[i]);
-            int thisTopic = ldaData.topics[i];
-            thisWordTopics[thisTopic]++;
-            numTopic[ldaData.topics[i]]++;
+            int wId = ldaData.words[i];
+            int topic = ldaData.topics[i];
+            if (topic >= topics.values.length) {
+                System.out.println("invalid topic: " + topic + ", " + topics.values.length + ", " + topics.rowKeys);
+                System.exit(1);
+            }
+
+            int[] wTopics = (int[]) wordTopics.get(wId);
+            wTopics[topic]++;
+            topics.setElement(topic, topics.element(topic) + 1);
         }
         return ldaData;
     }
 
     public void getPhi() {
 
-        Integer[][] wt = ((WordTopic) getCache(LDAModel.MATRIX_PARAM_WORDTOPIC)).values;
-        Integer[] t = ((Topic) getCache(LDAModel.MATRIX_PARAM_TOPIC)).values;
+        int[][] wt = ((IntMatrix) getCache(LDAModel.MATRIX_PARAM_WORDTOPIC)).values;
+        int[] t = ((IntArray) getCache(LDAModel.MATRIX_PARAM_TOPIC)).values;
 
         phi = new double[t.length][wt.length];
         for (int k = 0; k < K; k++) {

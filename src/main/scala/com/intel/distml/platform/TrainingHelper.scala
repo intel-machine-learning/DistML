@@ -102,7 +102,7 @@ object TrainingHelper {
       else {
         //tmp = tmp.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).repartition(context.workerCount)
         tmp = tmp.mapPartitionsWithIndex(workerStartFunction(modelBroadcast, monitorActorPath, context)).cache()
-        tmp.collect
+        tmp.count()
       }
     }
 /*

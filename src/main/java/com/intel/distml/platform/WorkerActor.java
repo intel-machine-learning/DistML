@@ -26,9 +26,19 @@ import javax.management.RuntimeErrorException;
  * Created by yunlong on 12/13/14.
  */
 public class WorkerActor<T> extends UntypedActor {
-	/*
-	 * Messages
-	 */
+
+    private static final int CMD_DISCONNECT = 1;
+    private static final int CMD_STOP       = 2;
+
+    static class Command extends DistMLMessage {
+        private static final long serialVersionUID = 1L;
+
+        final public int cmd;
+        public Command(int cmd) {
+            this.cmd = cmd;
+        }
+    }
+
     public static class RegisterRequest extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
@@ -76,6 +86,7 @@ public class WorkerActor<T> extends UntypedActor {
 
     InetSocketAddress[] psAddrs;   // parameter servers
     DataBusImpl dataBus;
+    ActorRef[] connections;
     int workerIndex;
 
 	/*
@@ -191,12 +202,12 @@ public class WorkerActor<T> extends UntypedActor {
                 this.psAddrs = res.psAddrs;
 
                 final ActorRef tcpManager = Tcp.get(getContext().system()).manager();
-                ActorRef[] clients = new ActorRef[context.psCount];
+                connections = new ActorRef[context.psCount];
                 for (int i = 0; i < context.psCount; i++) {
-                    clients[i] = getContext().actorOf(DataRelay.props(getSelf()));
-                    tcpManager.tell(TcpMessage.connect(psAddrs[i]), clients[i]);
+                    connections[i] = getContext().actorOf(DataRelay.props(getSelf()));
+                    tcpManager.tell(TcpMessage.connect(psAddrs[i]), connections[i]);
                 }
-                dataBus = new DataBusImpl(clients, model, getContext());
+                dataBus = new DataBusImpl(connections, model, getContext());
 
                 innerState.dataBusInitCounter = 0;
 
@@ -240,7 +251,10 @@ public class WorkerActor<T> extends UntypedActor {
                     //log("Tell worker lead training is done");
                     progressReminder.cancel();
                     //monitor.tell(new MonitorActor.WorkerIterationDone(workerIndex, context.currentIter), getSelf());
-                    getContext().stop(getSelf());
+                    innerState.currentState = State.DONE;
+
+
+                    getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_DISCONNECT), getContext().dispatcher(), getSelf());
                 }
 
                 return;
@@ -254,6 +268,17 @@ public class WorkerActor<T> extends UntypedActor {
                 getContext().stop(getSelf());
             }
 */
+        } else if (innerState.currentState == State.DONE) {
+            Command cmd = (Command) msg;
+            if (cmd.cmd == CMD_DISCONNECT) {
+                for (ActorRef c : connections) {
+                    c.tell(new DataRelay.CloseAtOnce(), getSelf());
+                }
+                getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
+            }
+            else if (cmd.cmd == CMD_STOP) {
+                getContext().stop(getSelf());
+            }
         }
         else unhandled(msg);
 	}

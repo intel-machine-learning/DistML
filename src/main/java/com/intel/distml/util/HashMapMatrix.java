@@ -192,35 +192,5 @@ public class HashMapMatrix<T> extends Matrix implements Cloneable {
             }
         }
     }
-//    @Override
-//    public Object clone(){
-//        HashMapMatrix<T> hm=new HashMapMatrix<T>();
-//        hm.data=(HashMap<Long, T>)this.data.clone();
-//        return hm;
-//    }
 
-    @Override
-    public Object clone() throws CloneNotSupportedException {
-        //HashMapMatrix<T> newInstance = (HashMapMatrix<T>) super.clone();
-        //newInstance.data= (HashMap<Long, T>) this.data.clone();
-
-        HashMapMatrix<Integer[]> newInstance = new HashMapMatrix<Integer[]>();
-        newInstance.data = new HashMap<Long, Integer[]>();
-        java.util.Iterator<Long> itr = this.data.keySet().iterator();
-
-        while(itr.hasNext()){
-            Long key=itr.next();
-
-            if(!(this.data.get(key) instanceof Integer[]))
-                throw new RuntimeException("only support integer[] clone");
-
-            Integer[] value = (Integer[]) this.data.get(key);
-            Integer[] newValue = new Integer[value.length];
-            for(int i=0;i<value.length;i++)
-                newValue[i]=value[i];
-            newInstance.data.put(new Long(key),newValue);
-        }
-
-        return newInstance;
-    }
 }

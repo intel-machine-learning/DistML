@@ -20,7 +20,7 @@ object LDA {
   }
 
   var dic = new Dictionary()
-  val K = 2000   //topic number
+  val K = 20000   //topic number
 
   def main(args: Array[String]) {
 
@@ -37,6 +37,7 @@ object LDA {
       .set("spark.executor.memory", sparkMem)
       .set("spark.home", sparkHome)
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+      .set("spark.kryoserializer.buffer.mb", "500")
       .setJars(Seq(appJars))
 
     val spark = new SparkContext(conf)
@@ -44,8 +45,8 @@ object LDA {
 
     println("====================start:  ==========")
 //    val trainingFile: String = "hdfs://dl-s1:9000/usr/ruixiang/lda/newdocs2.dat"
-//    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/wiki_1000000"
-    val trainingFile: String = "hdfs://dl-s1:9000/data/text/20ng-train-all-terms.txt"
+    val trainingFile: String = "hdfs://dl-s1:9000/data/wiki/wiki_1000000"
+    //val trainingFile: String = "hdfs://dl-s1:9000/data/text/20ng-train-all-terms.txt"
 
     var rawLines = spark.textFile(trainingFile).map(normalizeString).filter(s => s.length > 0)
 //    rawLines = rawLines.repartition(2);
@@ -61,8 +62,8 @@ object LDA {
 
     val config: TrainingContext = new TrainingContext();
     config.iteration(1);
-    config.miniBatchSize(200);
-    config.psCount(1);
+    config.miniBatchSize(20);
+    config.psCount(4);
 //    config.workerCount(1)
 
     val m: Model = new LDAModel(0.5f, 0.1f, K, dic.getSize)
@@ -87,7 +88,14 @@ object LDA {
       words.foreach(x => wordIDs += dic.addWord(x))
 
       val topics = new ListBuffer[Int]()
-      wordIDs.foreach(x => topics += Math.floor(Math.random()*K).toInt)
+      wordIDs.foreach(x => {
+        var topic = Math.floor(Math.random()*K).toInt
+        if (topic >= 20000) {
+          System.out.println("invalid topic: " + topic)
+          System.exit(1)
+        }
+        topics += topic
+      })
 
       val doctopic = new Array[Int](K)
       topics.foreach(x => doctopic(x) = doctopic(x) + 1)
