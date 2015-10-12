@@ -27,7 +27,7 @@ object MNIST {
     val spark = new SparkContext(conf)
     Thread.sleep(3000)
 
-    val trainingFile: String = "hdfs://dl-s3:9000/test/mnist_train_1"
+    val trainingFile: String = "hdfs://dl-s1:9000/data/mnist/mnist_train.txt"
     val rawLines = spark.textFile(trainingFile)
 
     val config: TrainingContext = new TrainingContext();

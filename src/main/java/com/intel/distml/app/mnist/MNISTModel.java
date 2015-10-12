@@ -13,13 +13,10 @@ public class MNISTModel extends ConvModel {
     public static final int INPUT_IMAGE_WIDTH = 28;
     public static final int INPUT_IMAGE_HEIGHT = 28;
     public static final float eta=1.0f;//fixed learning rate
-    public static float[] rL;
-    public static int itrIndex;
+
     public MNISTModel() {
 
         super(6);
-        itrIndex=0;
-        rL=new float[600];//TODO:fix the magic number
 
         ImageLayer input = new MNISTInputLayer(this, 28, 28, 1);
         addLayer(0, input);
@@ -44,7 +41,7 @@ public class MNISTModel extends ConvModel {
     public Matrix transformSamples(List<Object> samples) {
         String str = (String)samples.get(0);
         System.out.println("sample string: [" + str + "]");
-        String[] strs = str.split(",");
+        String[] strs = str.split(" ");
 
         LabeledImage data = new LabeledImage(INPUT_IMAGE_WIDTH, INPUT_IMAGE_HEIGHT);
         float[][] img = data.element(0);

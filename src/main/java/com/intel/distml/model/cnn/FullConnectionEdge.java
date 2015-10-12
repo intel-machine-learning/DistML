@@ -63,16 +63,7 @@ public class FullConnectionEdge extends Edge {
         }
         loss = (float) 0.5 * loss / error.values.length;
         System.out.println("loss is"+loss);
-        MNISTModel thisModel=((MNISTModel) network);
-        if(thisModel.itrIndex==0) {
-            thisModel.rL[0] = loss;
-            thisModel.itrIndex++;
-        }
-        else {
-            thisModel.rL[thisModel.itrIndex] = (float) 0.001 * loss + (float) 0.99 * thisModel.rL[thisModel.itrIndex - 1];
-            System.out.println("accumlate loss is:" + thisModel.rL[thisModel.itrIndex]+"int iterate:"+thisModel.itrIndex);
-            thisModel.itrIndex++;
-        }
+
 
         //calculate output delta
         delta.CopyFrom(output);

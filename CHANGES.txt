@@ -1,3 +1,5 @@
+2015-10-12]
+1. Add serialization support for CNN classes
 
 [2015-08-21]
 1. add draft lda support

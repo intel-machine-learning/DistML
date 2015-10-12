@@ -9,6 +9,7 @@ import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
 import com.intel.distml.api.Partition;
 import com.intel.distml.api.PartitionInfo;
+import com.intel.distml.model.cnn.*;
 import com.intel.distml.model.lda.*;
 import com.intel.distml.model.rosenblatt.PointSample;
 import com.intel.distml.model.rosenblatt.Rosenblatt;
@@ -140,6 +141,24 @@ public class DataSerializer {
         kryo.register(SparseWeights.class);
         kryo.register(WeightItem.class);
 
+        kryo.register(float[][].class);
+        kryo.register(float[][][].class);
+        kryo.register(float[][][][].class);
+        kryo.register(Float[][].class);
+        kryo.register(ConvKernels.class);
+        kryo.register(ConvEdge.class);
+        kryo.register(ConvLayer.class);
+        kryo.register(ImageLayer.class);
+        kryo.register(ImagesData.class);
+        kryo.register(LabeledImage.class);
+        kryo.register(PoolLayer.class);
+        kryo.register(PoolEdge.class);
+        kryo.register(PoolLayerParam.class);
+        kryo.register(ConvModel.class);
+        kryo.register(FullConnectionLayer.class);
+        kryo.register(FullConnectionMatrix.class);
+        kryo.register(FullConnectionVector.class);
+        kryo.register(FullConnectionEdge.class);
 
         return kryo;
     }

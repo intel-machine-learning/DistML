@@ -1,0 +1,28 @@
+
+Before running samples, remember to change configurations in "conf.sh" according to your environment.
+
+
+DistML provides some samples for evaulation.
+
+1. Word2Vec
+	# prepare a line separated dataset
+	# put the dataset to HDFS
+	# modify EngWords.scala to use that dataset
+	# run "./run.sh word2vec"
+
+2. MNIST
+	# run "./mnist_prepare.sh" under data directory
+	# put "mnist_train.txt" to HDFS
+	# modify MNIST.scala to use "mnist_train.txt"
+	# run "./run.sh mnist"
+
+3. SparseLR
+	# prepare dataset
+	# in spark application, create RDD[LRSample] from the dataset
+	# use following code to train SparseLR model with rdd:
+ 	    val model = new SparseLRModel(20000000000L)
+	    val config = new TrainingContext().psCount(4).iteration(1).miniBatchSize(10000)
+	    TrainingHelper.startTraining(rdd.sparkContext, model, rdd.repartition(12), config, new BigModelWriter(10));
+	
+	# use following line to get the weights:
+	    val weights = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[SparseWeights]; 
