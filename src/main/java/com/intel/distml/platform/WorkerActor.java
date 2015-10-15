@@ -269,15 +269,16 @@ public class WorkerActor<T> extends UntypedActor {
             }
 */
         } else if (innerState.currentState == State.DONE) {
-            Command cmd = (Command) msg;
-            if (cmd.cmd == CMD_DISCONNECT) {
-                for (ActorRef c : connections) {
-                    c.tell(new DataRelay.CloseAtOnce(), getSelf());
+            if (msg instanceof Command) {
+                Command cmd = (Command) msg;
+                if (cmd.cmd == CMD_DISCONNECT) {
+                    for (ActorRef c : connections) {
+                        c.tell(new DataRelay.CloseAtOnce(), getSelf());
+                    }
+                    getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
+                } else if (cmd.cmd == CMD_STOP) {
+                    getContext().stop(getSelf());
                 }
-                getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
-            }
-            else if (cmd.cmd == CMD_STOP) {
-                getContext().stop(getSelf());
             }
         }
         else unhandled(msg);

@@ -47,27 +47,29 @@ public class ParameterServerActor extends UntypedActor {
     private ActorSelection monitor;
     private Model model;
     private int parameterServerIndex;
+    private String psNetwordPrefix;
 
     private LinkedList<ActorRef> clients;
 
-    public static Props props(final Model model, final String monitorPath, final int parameterServerIndex) {
+    public static Props props(final Model model, final String monitorPath, final int parameterServerIndex, final String psNetwordPrefix) {
         return Props.create(new Creator<ParameterServerActor>() {
             private static final long serialVersionUID = 1L;
             public ParameterServerActor create() throws Exception {
-                return new ParameterServerActor(model, monitorPath, parameterServerIndex);
+                return new ParameterServerActor(model, monitorPath, parameterServerIndex, psNetwordPrefix);
             }
         });
     }
 
-    ParameterServerActor(Model model, String monitorPath, int parameterServerIndex) {
+    ParameterServerActor(Model model, String monitorPath, int parameterServerIndex, String psNetwordPrefix) {
         this.monitor = getContext().actorSelection(monitorPath);
         this.parameterServerIndex = parameterServerIndex;
         this.clients = new LinkedList<ActorRef>();
         this.model = model;
+        this.psNetwordPrefix = psNetwordPrefix;
 
         try {
             final ActorRef tcp = Tcp.get(getContext().system()).manager();
-            InetSocketAddress addr = new InetSocketAddress(Utils.getLocalIP(), 0);
+            InetSocketAddress addr = new InetSocketAddress(Utils.getLocalIP(psNetwordPrefix), 0);
             tcp.tell(TcpMessage.bind(getSelf(), addr, 100), getSelf());
         }
         catch (Exception e) {

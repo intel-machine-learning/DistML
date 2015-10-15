@@ -11,9 +11,6 @@ import java.util.Enumeration;
  * Created by spark on 7/2/14.
  */
 public class Utils {
-    public static String getLocalIP() throws SocketException {
-        return getLocalIP("192.168.42");
-    }
 
     public static String getLocalIP(String networkPrefix) throws SocketException {
         System.out.println("get local ip with prefix: " + networkPrefix);

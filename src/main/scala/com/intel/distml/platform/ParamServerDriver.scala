@@ -16,7 +16,7 @@ import scala.collection.mutable
  */
 class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broadcast[Model], actorSystemConfig : String, monitor : String, psCount : Int) extends Thread with Serializable {
 
-  def paramServerTask(modelBroadcast : Broadcast[Model])(index: Int) : Int = {
+  def paramServerTask(modelBroadcast : Broadcast[Model], prefix : String)(index: Int) : Int = {
 
     println("starting server task")
 
@@ -29,7 +29,7 @@ class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broad
       ConfigFactory.load(parameterServerRemoteConfig))
 
     // Start parameter server
-    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(modelBroadcast.value, monitor, index),
+    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(modelBroadcast.value, monitor, index, prefix),
       PARAMETER_SERVER_ACTOR_NAME)
 
     parameterServerActorSystem.awaitTermination()
@@ -39,12 +39,14 @@ class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broad
   }
 
   override def run() {
+    var prefix = System.getenv("PS_NETWORK_PREFIX")
+
     var da = new Array[Int](psCount)
     for (i <- 0 to psCount - 1)
       da(i) = i
 
     val data = spark.parallelize(da, psCount)
-    val dummy = data.map(paramServerTask(modelBroadcast)).collect()
+    val dummy = data.map(paramServerTask(modelBroadcast, prefix)).collect()
     print("parameter servers finish their work.")
   }
 

@@ -1,4 +1,9 @@
-2015-10-12]
+
+[2015-10-15]
+1. Add environment variable "PS_NETWORK_PREFIX", which is used by parameter servers
+2. Fix issue in handling messages after iteration done 
+
+[2015-10-12]
 1. Add serialization support for CNN classes
 
 [2015-08-21]
