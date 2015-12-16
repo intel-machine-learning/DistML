@@ -28,9 +28,17 @@ public class Utils {
                 ip = (InetAddress) addresses.nextElement();
                 if (ip != null && ip instanceof Inet4Address)
                 {
-                    if (ip.getHostAddress().startsWith(networkPrefix)) {
-                        ipAddr = ip.getHostAddress();
-                        System.out.println("IP = " + ipAddr);
+                    if (networkPrefix != null) {
+                        if (ip.getHostAddress().startsWith(networkPrefix)) {
+                            ipAddr = ip.getHostAddress();
+                            System.out.println("IP = " + ipAddr);
+                        }
+                    }
+                    else {
+                        if (!ip.getHostAddress().startsWith("127")) {
+                            ipAddr = ip.getHostAddress();
+                            System.out.println("IP = " + ipAddr);
+                        }
                     }
                 }
             }

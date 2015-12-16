@@ -2,7 +2,6 @@ package com.intel.distml.platform
 
 import akka.actor.ActorSystem
 import com.intel.distml.api.Model
-import com.intel.distml.model.word2vec.{Word2VecModelWriter, Word2VecModel}
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD

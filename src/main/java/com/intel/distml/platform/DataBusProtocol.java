@@ -2,10 +2,9 @@ package com.intel.distml.platform;
 
 import com.intel.distml.api.Model;
 import com.intel.distml.util.KeyCollection;
-import com.intel.distml.util.Matrix;
 
 import java.io.Serializable;
-import java.util.LinkedList;
+import java.util.HashMap;
 
 /**
  * DataBusProtocol defines all messages between workers and parameters, and inter workers.
@@ -16,94 +15,40 @@ public class DataBusProtocol {
 
     public static class ScamlMessage implements Serializable {}
 
-    public static class SampleRequest extends ScamlMessage {
-
-        SampleRequest() {
-        }
-    }
-
-    // fetch model from monitor
-    public static class FetchModelRequest extends ScamlMessage {
-
-        FetchModelRequest() {
-
-        }
-    }
-    // fetch model from monitor
-    public static class FetchModelResponse extends ScamlMessage {
-
-        public Model model;
-        FetchModelResponse(Model model) {
-            this.model = model;
-        }
-    }
-
-
-    // fetch all data of specified matrix
-    public static class FetchDataRequest extends ScamlMessage {
+     public static class FetchRawDataRequest extends ScamlMessage {
 
         final public String matrixName;
-
-        FetchDataRequest(String matrixName) {
-            this.matrixName = matrixName;
-        }
-    }
-
-    // fetch part of specified matrix
-    public static class PartialDataRequest extends FetchDataRequest {
-
         final public KeyCollection rows;
         final public KeyCollection cols;
 
-        PartialDataRequest(String matrixName, KeyCollection rows, KeyCollection cols) {
-            super(matrixName);
+        public FetchRawDataRequest(String matrixName, KeyCollection rows, KeyCollection cols) {
+            this.matrixName = matrixName;
             this.rows = rows;
             this.cols = cols;
         }
     }
 
-    // data list returned per request
-    public static class DataList extends ScamlMessage {
-        private static final long serialVersionUID = 1L;
-
-        public final LinkedList<Matrix> dataList;
-        public DataList (LinkedList<Matrix> dataList) {
-            this.dataList = dataList;
-        }
-    }
-
-    // data returned per request
-    public static class Data extends ScamlMessage {
-        private static final long serialVersionUID = 1L;
+    public static class PushUpdateRequest<T> extends ScamlMessage {
 
         public final String matrixName;
-        public final Matrix data;
-        public Data(String matrixName, Matrix _data) {
+        public final HashMap<Long, T> update;
+
+        public PushUpdateRequest(String matrixName, HashMap<Long, T> update) {
             this.matrixName = matrixName;
-            this.data = _data;
-        }
-    }
-
-    // fetch input data before training
-    public static class PushDataRequest extends ScamlMessage {
-
-        public final LinkedList<Data> dataList;
-        public final boolean initializeOnly;
-
-        public PushDataRequest(LinkedList<Data> dataList) {
-            this.dataList = dataList;
-            initializeOnly = false;
-        }
-
-        public PushDataRequest(String matrixName, boolean initializeOnly, Matrix _data) {
-            dataList = new LinkedList<Data>();
-            dataList.add(new Data(matrixName, _data));
-            this.initializeOnly = initializeOnly;
+            this.update = update;
         }
 
         @Override
         public String toString() {
-            return "(PushData: " + dataList.get(0) + ")";
+            return "(PushUpdateRequest: " + update.size() + ")";
+        }
+    }
+    public static class PushUpdateResponse extends ScamlMessage {
+        private static final long serialVersionUID = 1L;
+
+        final public boolean success;
+        public PushUpdateResponse(boolean success) {
+            this.success = success;
         }
     }
 

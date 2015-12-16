@@ -7,14 +7,19 @@ import akka.io.Tcp;
 import akka.io.TcpMessage;
 import akka.japi.Creator;
 import com.intel.distml.api.DMatrix;
-import com.intel.distml.api.PartitionInfo;
 import com.intel.distml.api.Model;
 
 import akka.actor.UntypedActor;
 import com.intel.distml.util.*;
+import com.intel.distml.util.DoubleArray;
+import com.intel.distml.util.IntMatrix;
+import com.intel.distml.util.store.DoubleArrayStore;
+import com.intel.distml.util.store.IntMatrixStore;
 
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 
 public class ParameterServerActor extends UntypedActor {
 
@@ -44,8 +49,11 @@ public class ParameterServerActor extends UntypedActor {
         }
     }
 
-    private ActorSelection monitor;
     private Model model;
+    private HashMap<String, DataStore> stores;
+
+
+    private ActorSelection monitor;
     private int parameterServerIndex;
     private String psNetwordPrefix;
 
@@ -67,6 +75,13 @@ public class ParameterServerActor extends UntypedActor {
         this.model = model;
         this.psNetwordPrefix = psNetwordPrefix;
 
+        stores = new HashMap<String, DataStore>();
+        for (Map.Entry<String, DMatrix> m : model.dataMap.entrySet()) {
+            if (m.getKey().equals("SAMPLE")) continue;
+
+            stores.put(m.getKey(), createStore(parameterServerIndex, m.getValue()));
+        }
+
         try {
             final ActorRef tcp = Tcp.get(getContext().system()).manager();
             InetSocketAddress addr = new InetSocketAddress(Utils.getLocalIP(psNetwordPrefix), 0);
@@ -77,6 +92,21 @@ public class ParameterServerActor extends UntypedActor {
         }
 
         log("register to monitor");
+    }
+
+    public DataStore createStore(int serverIndex, DMatrix matrix) {
+        if (matrix instanceof DoubleArray) {
+            DoubleArrayStore store = new DoubleArrayStore();
+            store.init(matrix.partitions[serverIndex]);
+            return store;
+        }
+        else if (matrix instanceof IntMatrix) {
+            IntMatrixStore store = new IntMatrixStore();
+            store.init(matrix.partitions[serverIndex], ((IntMatrix)matrix).cols);
+            return store;
+        }
+
+        return null;
     }
 
     @Override
@@ -99,84 +129,30 @@ public class ParameterServerActor extends UntypedActor {
             clients.add(c);
 
         } else if (msg instanceof ModelSetup) {
-            initModel();
             monitor.tell(new ModelSetupDone(), getSelf());
 
-        } else if (msg instanceof DataBusProtocol.PartialDataRequest) {// Fetch partial parameters
-            DataBusProtocol.PartialDataRequest req = (DataBusProtocol.PartialDataRequest)msg;
-            Matrix data = model.getMatrix(req.matrixName).localCache;
+        } else if (msg instanceof DataBusProtocol.FetchRawDataRequest) {// Fetch parameters
+            DataBusProtocol.FetchRawDataRequest req = (DataBusProtocol.FetchRawDataRequest)msg;
+
             KeyCollection rows = req.rows;
             KeyCollection cols = req.cols;
 
+            DataStore store = stores.get(req.matrixName);
+
             log("partial data request received: " + req.matrixName + ", " + req.rows + ", " + rows);
-            if (rows instanceof KeyList) {
-                log("keylist size = " + rows.size());
-            }
-            Matrix result = data.subMatrix(rows, cols);
 
-            log("send data: " + result + ", row size = " + result.getRowKeys().size());
-            //getSender().tell(, getSelf());
-            getSender().tell(new DataBusProtocol.Data(req.matrixName, result), getSelf());
-
-        } else if (msg instanceof DataBusProtocol.FetchDataRequest) { // Fetch parameters of one layer
-            DataBusProtocol.FetchDataRequest req = (DataBusProtocol.FetchDataRequest)msg;
-
-            Matrix data = model.getMatrix(req.matrixName).localCache;
-            log("data request received: " + data.getRowKeys());
-            getSender().tell(new DataBusProtocol.Data(req.matrixName, data), getSelf());
-
-        } else if (msg instanceof DataBusProtocol.PushDataRequest) {
+            Object result = store.partialData(rows);
+            getSender().tell(result, getSelf());
+        } else if (msg instanceof DataBusProtocol.PushUpdateRequest) {
             log("update push request received.");
-            DataBusProtocol.PushDataRequest req = (DataBusProtocol.PushDataRequest)msg;
+            DataBusProtocol.PushUpdateRequest req = (DataBusProtocol.PushUpdateRequest)msg;
 
-            for (DataBusProtocol.Data update : req.dataList) {
-                if (req.initializeOnly) {
-                    log("replacing local cache: " + update.data);
-                    DMatrix m = model.getMatrix(update.matrixName);
-                    if (m.localCache == null) {
-                        m.setLocalCache(update.data);
-                    }
-                    else {
-                        m.mergeMatrix(update.data);
-                    }
-                }
-                else {
-                    log("merge begin");
-                    model.mergeUpdate(parameterServerIndex, update.matrixName, update.data);
-                    log("merge done");
-                }
-            }
-            // Always return successful current now
+            DataStore store = stores.get(req.matrixName);
+            store.mergeUpdate(req.update);
             getSender().tell(new DataBusProtocol.PushDataResponse(true), getSelf());
-        } else if (msg instanceof MonitorActor.IterationDone) {
-            model.iterationDone(parameterServerIndex, ((MonitorActor.IterationDone) msg).iter);
-            monitor.tell(new MonitorActor.IterationDoneAck(parameterServerIndex), getSelf());
         }
 
         else unhandled(msg);
-    }
-
-    private void initModel() {
-        // Initialize parameters
-        for (String matrixName : model.dataMap.keySet()) {
-            DMatrix m = model.getMatrix(matrixName);
-            if (!m.hasFlag(DMatrix.FLAG_ON_SERVER)) {
-                continue;
-            }
-
-            PartitionInfo info = m.serverPartitions();
-            KeyCollection keys = m.getRowKeys();  // if not partitioned or copied
-            if (info != null) {
-                if (info.type == PartitionInfo.Type.PARTITIONED) {
-                    keys = info.getPartition(parameterServerIndex).keys;
-                } else if ((info.type == PartitionInfo.Type.EXCLUSIVE) && (info.exclusiveIndex != parameterServerIndex)) {
-                    return;
-                }
-            }
-
-            log("init parameters on server: " + matrixName + ", " + model + ", " + m);
-            m.initOnServer(this.parameterServerIndex, keys);
-        }
     }
 
     @Override
@@ -186,6 +162,6 @@ public class ParameterServerActor extends UntypedActor {
     }
 
     private void log(String msg) {
-        Logger.InfoLog(msg, Logger.Role.PARAMETER_SERVER, this.parameterServerIndex);
+        Logger.info(msg, "PS-" + parameterServerIndex);
     }
 }

@@ -13,34 +13,11 @@ public class Logger {
         DEBUG,
         INFO,
         WARN,
-        ERROR
-    }
-
-    public enum Role {
-        APP,
-        DATABUS,
-        WORKER,
-        WORKER_LEAD,
-        PARAMETER_SERVER,
-        MONITOR,
-        SYSTEM
+        ERROR,
+        CRITICAL
     }
 
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss.SSS");
-    private static void Log(Type logType, String msg, Role role, int index) {
-        String typeStr = logType.toString();
-        String roleStr = role.toString();
-
-
-        if (index > 0) {
-            System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
-                    "[" + roleStr + "-" + index + "] " + msg);
-        }
-        else {
-            System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
-                    "[" + roleStr + "] " + msg);
-        }
-    }
 
     public static void Log(Type logType, String module, String msg) {
         String typeStr = logType.toString();
@@ -48,27 +25,19 @@ public class Logger {
                 "[" + module + "] " + msg);
     }
 
-    public static void DebugLog(String msg, Role role, int index) {
-        Log(Type.DEBUG, msg, role, index);
+    public static void debug(String msg, String module) {
+        Log(Type.DEBUG, msg, module);
     }
 
-    public static void InfoLog(String msg, Role role, int index) {
-        Log(Type.INFO, msg, role, index);
+    public static void info(String msg, String module) {
+        Log(Type.INFO, msg, module);
     }
 
-    public static void InfoLog(String msg, Role role) {
-        Log(Type.INFO, msg, role, -1);
+    public static void error(String msg, String module) {
+        Log(Type.ERROR, msg, module);
     }
 
-    public static void WarnLog(String msg, Role role, int index) {
-        Log(Type.WARN, msg, role, index);
-    }
-
-    public static void ErrorLog(String msg, Role role, int index) {
-        Log(Type.ERROR, msg, role, index);
-    }
-
-    public static void DebugLog(String module, String msg) {
-        Log(Type.DEBUG, module, msg);
+    public static void critical(String msg, String module) {
+        Log(Type.CRITICAL, msg, module);
     }
 }

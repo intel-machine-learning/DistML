@@ -1,4 +1,9 @@
 
+[2015-12-14]
+1. Simplify APIs, allow users to use naive data for customized algorithms
+2. With API change, only LR and LDA are remained to proove API is working well
+3. Run examples on yarn and can use spark submit
+
 [2015-10-15]
 1. Add environment variable "PS_NETWORK_PREFIX", which is used by parameter servers
 2. Fix issue in handling messages after iteration done 

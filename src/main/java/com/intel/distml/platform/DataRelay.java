@@ -110,7 +110,9 @@ public class DataRelay extends UntypedActor {
             responsor = getSender();
             sendRequest(msg);
         } else {
-            System.out.println("unexpected message: " + msg);
+            System.out.println("other message, relay it: " + msg);
+            responsor = getSender();
+            sendRequest(msg);
         }
     }
 
@@ -158,6 +160,6 @@ public class DataRelay extends UntypedActor {
     }
 
     private void log(String msg) {
-        Logger.DebugLog("DataRelaye-" + responsor, msg);
+        Logger.debug(msg, "DataRelaye-" + responsor);
     }
 }

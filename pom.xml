@@ -58,22 +58,10 @@
           <version>1.2.3</version>
         </dependency>
         <dependency>
-            <groupId>org.scalanlp</groupId>
-            <artifactId>breeze_2.10</artifactId>
-            <version>0.10</version>
-            <exclusions>
-                <!-- This is included as a compile-scoped dependency by jtransforms, which is
-                     a dependency of breeze. -->
-                <exclusion>
-                    <groupId>junit</groupId>
-                    <artifactId>junit</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-math3</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <groupId>com.github.scopt</groupId>
+            <artifactId>scopt_2.10</artifactId>
+      	    <version>3.2.0</version>
+	</dependency>
 
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -102,12 +90,6 @@
                 <plugin>
                      <groupId>org.apache.maven.plugins</groupId>
                      <artifactId>maven-compiler-plugin</artifactId>
-                    <configuration>
-                        <compilerVersion>1.7</compilerVersion>
-                        <source>1.6</source>
-                        <target>1.6</target>
-                        <encoding>UTF-8</encoding>
-                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -124,13 +106,6 @@
                         <goals>
                             <goal>add-source</goal>
                             <goal>compile</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>scala-test-compile</id>
-                        <phase>process-test-resources</phase>
-                        <goals>
-                            <goal>testCompile</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -153,32 +128,28 @@
                    </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.2</version>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>com.intel.distml.app.word2vec.Word2VecEng</mainClass>
-                        </manifest>
-                    </archive>
-                    <descriptorRefs>
-                        <descriptorRef>
-                            jar-with-dependencies
-                        </descriptorRef>
-                    </descriptorRefs>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <configuration>
+          <shadedArtifactAttached>false</shadedArtifactAttached>
+          <artifactSet>
+            <includes>
+              <include>com.github.scopt:scopt_2.10</include>
+            </includes>
+          </artifactSet>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>        
+
+	</plugins>
     </build>
 
 </project>
