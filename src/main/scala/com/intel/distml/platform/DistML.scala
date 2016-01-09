@@ -6,6 +6,8 @@ import com.intel.distml.platform.MonitorActor.TrainingDone
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 
+import scala.reflect.ClassTag
+
 /**
  * Created by yunlong on 12/8/15.
  */
@@ -56,7 +58,23 @@ object DistML {
       |akka.remote.netty.tcp.maximum-frame-size=4126935
     """.stripMargin
 
-  def distribute(sc : SparkContext, model : Model, psCount : Int): DistML = {
+  def dummyF(model : Model) : Int = {
+    1
+  }
+//
+//  def defaultF(model : Model) : Int = {
+//    for (m <- model.dataMap.values()) {
+//
+//    }
+//  }
+
+
+  def distribute[T: ClassTag](sc : SparkContext, model : Model, psCount : Int): DistML = {
+    distribute(sc, model, psCount, dummyF);
+  }
+
+
+  def distribute[T: ClassTag](sc : SparkContext, model : Model, psCount : Int, f : Function1[Model, T]): DistML = {
 
     model.autoPartition(psCount);
 
@@ -73,7 +91,7 @@ object DistML {
     model.monitorPath = monitorActorRef.path.toSerializationFormatWithAddress(address)
 
     var modelBroadcast = sc.broadcast(model)
-    (new ParamServerDriver(sc, modelBroadcast, ACTOR_SYSTEM_CONFIG, model.monitorPath, psCount)).start()
+    (new ParamServerDriver(sc, modelBroadcast, ACTOR_SYSTEM_CONFIG, model.monitorPath, psCount, f)).start()
 
     while (!model.psReady) {
       Thread.sleep(10)

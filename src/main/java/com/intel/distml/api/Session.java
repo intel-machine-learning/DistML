@@ -48,7 +48,7 @@ public class Session {
     }
 
     public void disconnect() {
-
+        dataBus.disconnect();
     }
 
     public void discard() {

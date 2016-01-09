@@ -14,6 +14,8 @@ import com.intel.distml.util.*;
 import com.intel.distml.util.DoubleArray;
 import com.intel.distml.util.IntMatrix;
 import com.intel.distml.util.store.DoubleArrayStore;
+import com.intel.distml.util.store.DoubleMatrixStore;
+import com.intel.distml.util.store.IntArrayStore;
 import com.intel.distml.util.store.IntMatrixStore;
 
 import java.net.InetSocketAddress;
@@ -49,15 +51,16 @@ public class ParameterServerActor extends UntypedActor {
         }
     }
 
+
     private Model model;
     private HashMap<String, DataStore> stores;
-
 
     private ActorSelection monitor;
     private int parameterServerIndex;
     private String psNetwordPrefix;
 
-    private LinkedList<ActorRef> clients;
+    private int clientCounter;
+    private HashMap<Integer, ActorRef> clients = new HashMap<Integer, ActorRef>();
 
     public static Props props(final Model model, final String monitorPath, final int parameterServerIndex, final String psNetwordPrefix) {
         return Props.create(new Creator<ParameterServerActor>() {
@@ -71,9 +74,9 @@ public class ParameterServerActor extends UntypedActor {
     ParameterServerActor(Model model, String monitorPath, int parameterServerIndex, String psNetwordPrefix) {
         this.monitor = getContext().actorSelection(monitorPath);
         this.parameterServerIndex = parameterServerIndex;
-        this.clients = new LinkedList<ActorRef>();
         this.model = model;
         this.psNetwordPrefix = psNetwordPrefix;
+        this.clientCounter = 0;
 
         stores = new HashMap<String, DataStore>();
         for (Map.Entry<String, DMatrix> m : model.dataMap.entrySet()) {
@@ -95,18 +98,32 @@ public class ParameterServerActor extends UntypedActor {
     }
 
     public DataStore createStore(int serverIndex, DMatrix matrix) {
-        if (matrix instanceof DoubleArray) {
-            DoubleArrayStore store = new DoubleArrayStore();
-            store.init(matrix.partitions[serverIndex]);
-            return store;
+        DataDesc format = matrix.getFormat();
+        if (format.dataType == DataDesc.DATA_TYPE_ARRAY) {
+            if (format.valueType == DataDesc.ELEMENT_TYPE_INT) {
+                IntArrayStore store = new IntArrayStore();
+                store.init(matrix.partitions[serverIndex]);
+                return store;
+            }
+            else if (format.valueType == DataDesc.ELEMENT_TYPE_DOUBLE) {
+                DoubleArrayStore store = new DoubleArrayStore();
+                store.init(matrix.partitions[serverIndex]);
+                return store;
+            }
         }
-        else if (matrix instanceof IntMatrix) {
-            IntMatrixStore store = new IntMatrixStore();
-            store.init(matrix.partitions[serverIndex], ((IntMatrix)matrix).cols);
-            return store;
+        else {
+            if (format.valueType == DataDesc.ELEMENT_TYPE_INT) {
+                IntMatrixStore store = new IntMatrixStore();
+                store.init(matrix.partitions[serverIndex], (int) matrix.getColKeys().size());
+                return store;
+            } else if (format.valueType == DataDesc.ELEMENT_TYPE_DOUBLE) {
+                DoubleMatrixStore store = new DoubleMatrixStore();
+                store.init(matrix.partitions[serverIndex], (int) matrix.getColKeys().size());
+                return store;
+            }
         }
 
-        return null;
+        throw new IllegalArgumentException("Unrecognized matrix type: " + matrix.getClass().getName());
     }
 
     @Override
@@ -120,20 +137,30 @@ public class ParameterServerActor extends UntypedActor {
             this.monitor.tell(new RegisterRequest(this.parameterServerIndex, addr), getSelf());
         } else if (msg instanceof Tcp.CommandFailed) {
             log("error: Server command failed");
-
         } else if (msg instanceof Tcp.Connected) {
             log("connected: " + getSender());
 //            ActorRef c = getContext().actorOf(connectionProps(getSender(), model, parameterServerIndex));
-            ActorRef c = getContext().actorOf(DataRelay.props(getSender(), getSelf()));
+            clientCounter++;
+            ActorRef c = getContext().actorOf(DataRelay.props(clientCounter, getSender(), getSelf()));
             getSender().tell(TcpMessage.register(c), getSelf());
-            clients.add(c);
-
+            clients.put(clientCounter, c);
+        } else if (msg instanceof DataRelay.Disconnect) {
+            log("relay disconnected: " + getSender());
+            int id = ((DataRelay.Disconnect)msg).id;
+            ActorRef client = clients.get(id);
+            clients.remove(id);
+            if (client != null) {
+                log("stopping: " + getSender() + ", " + client);
+                context().stop(client);
+//                context().stop(getSender());
+            }
         } else if (msg instanceof ModelSetup) {
             monitor.tell(new ModelSetupDone(), getSelf());
 
-        } else if (msg instanceof DataBusProtocol.FetchRawDataRequest) {// Fetch parameters
-            DataBusProtocol.FetchRawDataRequest req = (DataBusProtocol.FetchRawDataRequest)msg;
+        } else if (msg instanceof DataBusProtocol.FetchRequest) {// Fetch parameters
+            DataBusProtocol.FetchRequest req = (DataBusProtocol.FetchRequest)msg;
 
+            DMatrix m = model.getMatrix(req.matrixName);
             KeyCollection rows = req.rows;
             KeyCollection cols = req.cols;
 
@@ -141,15 +168,19 @@ public class ParameterServerActor extends UntypedActor {
 
             log("partial data request received: " + req.matrixName + ", " + req.rows + ", " + rows);
 
-            Object result = store.partialData(rows);
+            Object result = store.handleFetch(m.getFormat(), rows);
+            log("send back: " + result);
             getSender().tell(result, getSelf());
-        } else if (msg instanceof DataBusProtocol.PushUpdateRequest) {
-            log("update push request received.");
-            DataBusProtocol.PushUpdateRequest req = (DataBusProtocol.PushUpdateRequest)msg;
+            result = null;
+        } else if (msg instanceof DataBusProtocol.PushRequest) {
+            log("update push request received: " + msg);
+            DataBusProtocol.PushRequest req = (DataBusProtocol.PushRequest)msg;
+
+            DMatrix m = model.getMatrix(req.matrixName);
 
             DataStore store = stores.get(req.matrixName);
-            store.mergeUpdate(req.update);
-            getSender().tell(new DataBusProtocol.PushDataResponse(true), getSelf());
+            store.handlePush(m.getFormat(), req.data);
+            getSender().tell(new DataBusProtocol.PushResponse(true), getSelf());
         }
 
         else unhandled(msg);

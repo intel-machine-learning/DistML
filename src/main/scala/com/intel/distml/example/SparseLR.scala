@@ -1,23 +1,76 @@
 package com.intel.distml.example
 
+import java.io.File
 import java.util
+import java.util.Scanner
 
 import com.intel.distml.api.{Session, Model}
 import com.intel.distml.platform.DistML
+import com.intel.distml.util.scala.DoubleArrayWithIntKey
 import com.intel.distml.util.{DoubleArray, KeyList}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 object SparseLR {
 
   private case class Params(
-    psCount: Int = 2,
+    psCount: Int = 1,
     input: String = null,
     dim: Long = 10000000000L,
+    eta: Double = 0.0001,
     batchSize : Int = 100,
-    maxIterations: Int = 100)
+    maxIterations: Int = 100 )
+
+  def parseCancerData(line : String) : (mutable.HashMap[Int, Double], Int) = {
+        var columns = line.split("\\s+")
+
+        var x = new mutable.HashMap[Int, Double]()
+        for (i <- 1 to 5) {
+          x.put(i-1, Integer.parseInt(columns(i)))
+        }
+        var label = Integer.parseInt(columns(6))
+        (x, label)
+  }
+
+  def parseBlanc(line : String) : (mutable.HashMap[Int, Double], Int) = {
+    val s = line.split(" ")
+
+    var label = Integer.parseInt(s(0))
+
+    val x = new mutable.HashMap[Int, Double]();
+    for (i <- 1 to s.length-1) {
+      val f = s(i).split(":")
+      val v = java.lang.Double.parseDouble(f(1))
+      x.put(Integer.parseInt(f(0)), v)
+    }
+
+    (x, label)
+  }
+
+  def parseLR1(line : String) : (mutable.HashMap[Int, Double], Int) = {
+    val s = line.split(",")
+
+    var label = Integer.parseInt(s(s.length-1))
+
+    val x = new mutable.HashMap[Int, Double]()
+    var sum = 0.0
+    for (i <- 0 to s.length - 2) {
+      val v = java.lang.Double.parseDouble(s(i))
+      x.put(i, v)
+      sum += v * v
+    }
+
+    val r = Math.sqrt(sum)
+    for (key <- x.keySet) {
+      x.put(key, x(key)/r)
+    }
+
+    (x, label)
+  }
 
   def main(args: Array[String]) {
 
@@ -37,6 +90,9 @@ object SparseLR {
       opt[Int]("maxIterations")
         .text(s"number of iterations of learning. default: ${defaultParams.maxIterations}")
         .action((x, c) => c.copy(maxIterations = x))
+      opt[Double]("eta")
+        .text(s"learning rate. default: ${defaultParams.eta}")
+        .action((x, c) => c.copy(eta = x))
       arg[String]("<input>...")
         .text("input paths (directories) to plain text corpora." +
         "  Each text file line should hold 1 document.")
@@ -52,6 +108,10 @@ object SparseLR {
     }
   }
 
+  def write(model : Model) : Int = {
+    println("total ps count: " + model.psCount);
+    1
+  }
 
   def run(p : Params): Unit = {
 
@@ -62,26 +122,17 @@ object SparseLR {
     val conf = new SparkConf().setAppName("SparseLR")
     val sc = new SparkContext(conf)
 
-    val samples = sc.textFile(p.input).map( line => {
-      val s = line.split(" ")
-      val label = Integer.parseInt(s(0))
+    val samples = sc.textFile(p.input).map(parseCancerData)
 
-      val x = new util.HashMap[Long, Double]();
-      for (i <- 1 to s.length-1) {
-        val f = s(i).split(":")
-        x.put(Integer.parseInt(f(0)), java.lang.Double.parseDouble(f(1)))
-      }
-
-      (x, label)
-    })
+//    show(samples.collect())
+    samples.repartition(1)
 
     val m = new Model() {
-      registerMatrix("weights", new DoubleArray(2000000L))
+      registerMatrix("weights", new DoubleArrayWithIntKey(p.dim + 1))
     }
 
-    val dm = DistML.distribute(sc, m, p.psCount);
+    val dm = DistML.distribute(sc, m, p.psCount, write)
     val monitorPath = dm.monitorPath
-    val eta = 0.1
 
     for (iter <- 0 to p.maxIterations) {
       println("============ Iteration: " + iter + " ==============")
@@ -90,11 +141,11 @@ object SparseLR {
 
         println("--- connecting to PS ---")
         val session = new Session(m, monitorPath, index)
-        val wd = m.getMatrix("weights").asInstanceOf[DoubleArray]
+        val wd = m.getMatrix("weights").asInstanceOf[DoubleArrayWithIntKey]
 
-        val samples = new util.LinkedList[(util.HashMap[Long, Double], Int)]
+        val samples = new util.LinkedList[(mutable.HashMap[Int, Double], Int)]
 
-//        var progress = 0
+        //var progress = 0
         var cost = 0.0
 
         while (it.hasNext) {
@@ -108,44 +159,58 @@ object SparseLR {
           val keys = new KeyList()
 
           for ((x, label) <- samples) {
-            for (key <- x.keySet()) {
+            for (key <- x.keySet) {
               keys.addKey(key)
             }
           }
 
-          val w = wd.cache(keys, session)
+          val w = wd.fetch(keys, session)
+//          var i = 0
+//          val it2 = keys.iterator()
+//          while(it2.hasNext) {
+//            val key = it2.next()
+//            if (!w.containsKey(key.toInt)) {
+//              throw new Exception("key not found:" + key)
+//            }
+//            println("w[" + key + "] = " + w(key.intValue()))
+//            i += 1
+//          }
+
           val w_old = new util.HashMap[Long, Double]
-          for ((key, vlaue) <- w) {
-            w_old.put(key, vlaue)
+          for ((key, value) <- w) {
+            println("w[" + key + "] = " + value)
+            w_old.put(key, value)
           }
 
           for ((x, label) <- samples) {
             var sum = 0.0
-            for (key <- x.keySet()) {
-              val value = x.get(key)
-              sum = sum + w.get(key) * value
+            for ((k, v) <- x) {
+              sum += w(k) * v
             }
             val h = 1.0 / (1.0 + Math.exp(-sum))
 
-            val err = h - label
-            for (key <- x.keySet) {
-              val v: Double = w.get(key) - eta * err * x.get(key)
-              w.put(key, v)
+            val err = p.eta * (h - label)
+            for ((k, v) <- x) {
+//              println("k: " + k)
+//              println("w: " + w(k))
+//              println("v: " + v)
+              w.put(k, w(k) - err * v)
             }
 
             cost = cost + label * Math.log(h) + (1 - label) * Math.log(1 - h)
+            //println("label: " + label + ", " + sum + ", " + h + ", " + Math.log(h) + ", " + Math.log(1-h) + ", cost: " + cost)
           }
 
-//          cost /= samples.size()
-//          progress = progress + samples.size()
-//          println("progress: " + progress + ", cost: " + cost)
+          cost /= samples.size()
+          //progress = progress + samples.size()
+          //println("progress: " + progress + ", cost: " + cost)
 
           for (key <- w.keySet) {
-            val grad: Double = w.get(key) - w_old.get(key)
+            val grad: Double = w(key) - w_old(key)
             w.put(key, grad)
           }
 
-          wd.pushUpdates(w, session)
+          wd.push(w, session)
         }
         println("--- disconnect ---")
         session.disconnect()
@@ -162,5 +227,17 @@ object SparseLR {
     dm.recycle()
 
     sc.stop();
+  }
+
+  def show(samples : Array[(util.HashMap[Long, Double], Int)]): Unit = {
+
+    for (i <- 0 to samples.length-1) {
+      val s = samples(i)
+      for (key <- s._1.keySet()) {
+        print ("" + key + " : " + s._1.get(key) + "\t")
+      }
+      println("[ " + s._2 + "]")
+    }
+
   }
 }

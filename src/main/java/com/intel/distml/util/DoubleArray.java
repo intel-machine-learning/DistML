@@ -9,19 +9,11 @@ import java.util.HashMap;
 /**
  * Created by yunlong on 12/8/15.
  */
-public class DoubleArray extends DMatrix {
+
+public class DoubleArray extends SparseArray<Long, Double> {
 
     public DoubleArray(long dim) {
-        super(dim);
-    }
-
-    public HashMap<Long, Double> cache(KeyCollection rows, Session de) {
-        HashMap<Long, Double> obj = de.dataBus.fetch(name, rows, KeyCollection.ALL);
-        return obj;
-    }
-
-    public void pushUpdates(HashMap<Long, Double> updates, Session de) {
-        de.dataBus.push(name, updates);
+        super(dim, DataDesc.KEY_TYPE_LONG, DataDesc.ELEMENT_TYPE_DOUBLE);
     }
 
 }

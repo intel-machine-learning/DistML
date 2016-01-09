@@ -132,17 +132,14 @@ public class KeyRange extends KeyCollection {
             this.index = range.firstKey;
         }
 
-        @Override
         public boolean hasNext() {
             return index <= range.lastKey;
         }
 
-        @Override
         public Long next() {
             return index++;
         }
 
-        @Override
         public void remove() {
             throw new RuntimeException("Not supported.");
         }

@@ -1,5 +1,7 @@
 package com.intel.distml.api;
 
+import com.intel.distml.util.DataDesc;
+import com.intel.distml.util.DataStore;
 import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.KeyRange;
 
@@ -18,6 +20,10 @@ public class DMatrix implements Serializable {
 
 	protected String name;
 
+	protected DataDesc format;
+
+	protected DataStore store;
+
 	public DMatrix(long rows) {
 		this.partitionStrategy = PARTITION_STRATEGY_LINEAR;
 
@@ -30,6 +36,10 @@ public class DMatrix implements Serializable {
 
 	public KeyCollection getColKeys() {
 		return KeyRange.Single;
+	}
+
+	public DataDesc getFormat() {
+		return format;
 	}
 
 	public void setPartitionStrategy(int strategy) {
@@ -53,4 +63,11 @@ public class DMatrix implements Serializable {
 		partitions = keySets;
 	}
 
+	public DataStore getStore() {
+		return store;
+	}
+
+	public DataStore setStore() {
+		return store;
+	}
 }

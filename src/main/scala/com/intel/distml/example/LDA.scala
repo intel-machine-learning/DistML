@@ -5,6 +5,7 @@ import java.util
 
 import scopt.OptionParser
 
+import _root_.scala.collection.mutable.ListBuffer
 import scala.collection.JavaConversions._
 
 import com.intel.distml.api.{Session, Model}
@@ -12,9 +13,6 @@ import com.intel.distml.platform.DistML
 import com.intel.distml.util._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.{SparkContext, SparkConf}
-
-import scala.collection.mutable.ListBuffer
-import scala.collection.{immutable, mutable}
 
 /**
  * Created by yunlong on 12/10/15.
@@ -152,13 +150,13 @@ class LDA {
           keys.addKey(w)
         }
 
-        val dt = dtm.cache(KeyCollection.ALL, session)
+        val dt = dtm.fetch(KeyCollection.ALL, session)
         val dt_old = new util.HashMap[Long, Int]
         for (i <- 0 to K-1) {
           dt_old.put(i, dt.get(i))
         }
 
-        val wt = wtm.cache(keys, session)
+        val wt = wtm.fetch(keys, session)
         val wt_old = new util.HashMap[Long, Array[Int]]
         for ((key, value) <- wt) {
           val ts = new Array[Int](value.length)
@@ -177,7 +175,7 @@ class LDA {
           dt.put(topic.toLong, dtc + 1)
         }
 
-        dtm.pushUpdates(dt, session)
+        dtm.push(dt, session)
         //wtm.pushUpdates(wt, de)
       }
       val r = new Array[Int](1)
@@ -194,12 +192,12 @@ class LDA {
       val V = dic.getSize
 
       docs = docs.mapPartitionsWithIndex( (index, it) => {
-        val result = new mutable.ListBuffer[(Array[Int], Array[Int], Array[Int])]
+        val result = new ListBuffer[(Array[Int], Array[Int], Array[Int])]
 
         println("--- connecting to PS ---")
         val session = new Session(m, monitorPath, index)
-        val dtm = m.getMatrix("doc-topics").asInstanceOf[IntArray]
-        val wtm = m.getMatrix("word-topics").asInstanceOf[IntMatrix]
+        val dtm = m.getMatrix("doc-topics").asInstanceOf[IntArrayWithIntKey]
+        val wtm = m.getMatrix("word-topics").asInstanceOf[IntMatrixWithIntKey]
         val p = new Array[Double](K)
 
         while (it.hasNext) {
@@ -211,12 +209,12 @@ class LDA {
             wkeys.addKey(wid)
           }
 
-          val dt = hashMapToArray(dtm.cache(KeyCollection.ALL, session))
-          val wt = wtm.cache(wkeys, session)
+          val dt = dtm.fetch(KeyCollection.ALL, session)
+          val wt = wtm.fetch(wkeys, session)
 
           result += sampling(doc, wt, dt, p, alpha, beta, V)
 
-          dtm.pushUpdates(dt, session)
+          dtm.push(dt, session)
           //wtm.pushUpdates(wt, de)
         }
 
@@ -235,8 +233,8 @@ class LDA {
   }
 
   def sampling(doc: (Array[Int], Array[Int], Array[Int]),
-                 wt: util.HashMap[java.lang.Long, Array[Integer]],
-                 nTopics: Array[Integer],
+                 wt: util.HashMap[Integer, Array[Integer]],
+                 nTopics: util.HashMap[Integer, Integer],
                  p: Array[Double],
                  alpha: Double,
                  beta: Double,
@@ -290,45 +288,3 @@ class LDA {
   }
 }
 
-class Dict extends Serializable {
-
-  var  word2id = new immutable.HashMap[String, Int]
-  var  id2word = new immutable.HashMap[Int, String]
-
-  def getSize: Int = {
-    return word2id.size
-  }
-
-  def getWord(id: Int): String = {
-    return id2word.get(id).get
-  }
-
-  def getID(word: String): Integer = {
-    return word2id.get(word).get
-  }
-
-  /**
-   * check if this dictionary contains a specified word
-   */
-  def contains(word: String): Boolean = {
-    return word2id.contains(word)
-  }
-
-  def contains(id: Int): Boolean = {
-    return id2word.contains(id)
-  }
-
-  /**
-   * add a word into this dictionary
-   * return the corresponding id
-   */
-  def addWord(word: String): Int = {
-    if (!contains(word)) {
-      val id: Int = word2id.size
-      word2id += (word -> id)
-      id2word += (id -> word)
-      return id
-    }
-    else return getID(word)
-  }
-}

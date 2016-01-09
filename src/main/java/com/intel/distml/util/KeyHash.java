@@ -125,19 +125,16 @@ public class KeyHash extends KeyCollection {
             this.currentKey = keys.first;
         }
 
-        @Override
         public boolean hasNext() {
             return currentKey <= keys.last;
         }
 
-        @Override
         public Long next() {
             long k = currentKey;
             currentKey += keys.hashQuato;
             return k;
         }
 
-        @Override
         public void remove() {
             throw new RuntimeException("Not supported.");
         }

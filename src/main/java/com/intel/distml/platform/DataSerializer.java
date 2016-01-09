@@ -61,8 +61,9 @@ public class DataSerializer {
         kryo.setReferences(true);
         kryo.setRegistrationRequired(true);
 
-        kryo.register(int[][].class);
+        kryo.register(byte[].class);
         kryo.register(int[].class);
+        kryo.register(int[][].class);
         kryo.register(float[].class);
         kryo.register(Integer[].class);
         kryo.register(Integer[][].class);
@@ -89,10 +90,10 @@ public class DataSerializer {
         kryo.register(KeyHash.class);
         kryo.register(KeyRange.class);
 
-        kryo.register(DataBusProtocol.FetchRawDataRequest.class);
-        kryo.register(DataBusProtocol.PushUpdateRequest.class);
-        kryo.register(DataBusProtocol.PushUpdateResponse.class);
-        kryo.register(DataBusProtocol.PushDataResponse.class);
+        kryo.register(DataBusProtocol.FetchRequest.class);
+        kryo.register(DataBusProtocol.PushRequest.class);
+        kryo.register(DataBusProtocol.PushResponse.class);
+        kryo.register(DataDesc.class);
 
         kryo.register(DoubleArray.class);
         kryo.register(IntArray.class);

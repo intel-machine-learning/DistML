@@ -5,27 +5,23 @@ import com.intel.distml.api.Session;
 import com.intel.distml.util.KeyCollection;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by yunlong on 12/8/15.
  */
-public class IntMatrix extends DMatrix {
-
-    public int cols;
+public class IntMatrix extends SparseMatrix<Long, Integer> {
 
     public IntMatrix(long rows, int cols) {
-        super(rows);
-
-        this.cols = cols;
+        super(rows, cols, DataDesc.KEY_TYPE_LONG, DataDesc.ELEMENT_TYPE_INT);
     }
 
-    public HashMap<Long, Integer[]> cache(KeyCollection rows, Session de) {
-        HashMap<Long,Integer[]> obj = de.dataBus.fetch(name, rows, KeyCollection.ALL);
-        return obj;
+    protected boolean isZero(Integer value) {
+        return value == 0;
     }
 
-    public void pushUpdates(HashMap<Long, int[]> updates, Session de) {
-        de.dataBus.push(name, updates);
+    protected Integer[] createValueArray(int size) {
+        return new Integer[size];
     }
 
 }

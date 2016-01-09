@@ -8,8 +8,8 @@ import com.intel.distml.util.store.DoubleArrayStore;
  */
 public abstract class DataStore {
 
-    public abstract Object partialData(KeyCollection rows);
+    public abstract byte[] handleFetch(DataDesc format, KeyCollection rows);
 
-    public abstract void mergeUpdate(Object update);
+    public abstract void handlePush(DataDesc format, byte[] data);
 
 }

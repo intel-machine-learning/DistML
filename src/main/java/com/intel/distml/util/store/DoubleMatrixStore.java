@@ -2,27 +2,24 @@ package com.intel.distml.util.store;
 
 import com.intel.distml.util.*;
 
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 /**
- * Created by yunlong on 12/8/15.
+ * Created by jimmy on 16-1-4.
  */
-public class IntMatrixStore extends DataStore {
-
-    public static final int VALUE_SIZE = 4;
+public class DoubleMatrixStore extends DataStore {
+    public static final int VALUE_SIZE = 8;
 
     transient KeyCollection localRows;
-    transient int[][] localData;
+    transient double[][] localData;
 
     public void init(KeyCollection keys, int cols) {
         this.localRows = keys;
-        localData = new int[(int)keys.size()][cols];
+        localData = new double[(int)keys.size()][cols];
 
         for (int i = 0; i < keys.size(); i++)
             for (int j = 0; j < cols; j++)
-                localData[i][j] = 0;
+                localData[i][j] = 0.0;
 
     }
 
@@ -41,9 +38,9 @@ public class IntMatrixStore extends DataStore {
             Iterator<Long> it = keys.iterator();
             while (it.hasNext()) {
                 long k = it.next();
-                int[] values = localData[indexOf(k)];
+                double[] values = localData[indexOf(k)];
                 for (int i = 0; i < values.length; i++) {
-                    if (values[i] != 0) {
+                    if (values[i] != 0.0) {
                         nzcount++;
                     }
                 }
@@ -59,7 +56,7 @@ public class IntMatrixStore extends DataStore {
             format.writeKey((Number)k, buf, offset);
             offset += format.keySize;
 
-            int[] values = localData[indexOf(k)];
+            double[] values = localData[indexOf(k)];
             if (format.denseColumn) {
                 for (int i = 0; i < values.length; i++) {
                     format.writeValue(values[i], buf, offset);
@@ -114,17 +111,19 @@ public class IntMatrixStore extends DataStore {
         assert(localRows.contains(key));
 
         int index = indexOf(key);
-        int[] row = localData[index];
+        double[] row = localData[index];
         int offset = start;
         if (format.denseColumn) {
             for (int i = 0; i < row.length; i++) {
-                int update = format.readInt(data, offset);
+                double update = format.readDouble(data, offset);
                 row[i] += update;
+                /*
                 if (row[i] < 0) {
                     throw new IllegalStateException("invalid counter: " + key + ", " + i + ", " + row[i]);
                 }
+                */
                 //System.out.println("update matrix: " + key + ", " + i + ", old=" + row[i] + ", update=" + update);
-                offset += 4;
+                offset += VALUE_SIZE;
             }
         }
         else {
@@ -135,13 +134,12 @@ public class IntMatrixStore extends DataStore {
                 offset += 4;
                 assert(col < row.length);
 
-                int update = format.readInt(data, offset);
+                double update = format.readDouble(data, offset);
                 row[col] += update;
-                offset += 4;
+                offset += VALUE_SIZE;
             }
         }
 
         return offset;
     }
-
 }

@@ -6,7 +6,7 @@
 
     <groupId>intel</groupId>
     <artifactId>distml</artifactId>
-    <version>0.1</version>
+    <version>0.2</version>
    <properties>
         <scala.version>2.10.4</scala.version>
         <scala.maven.version>2.11.1</scala.maven.version>
@@ -61,7 +61,7 @@
             <groupId>com.github.scopt</groupId>
             <artifactId>scopt_2.10</artifactId>
       	    <version>3.2.0</version>
-	</dependency>
+	    </dependency>
 
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -76,7 +76,11 @@
             <version>2.10.4</version>
             <scope>compile</scope>
         </dependency>
-
+	<dependency>
+	    <groupId>org.apache.commons</groupId>
+	    <artifactId>commons-math3</artifactId>
+	    <version>3.0</version>
+	</dependency>	
     </dependencies>
 
     <build>
@@ -136,6 +140,7 @@
           <artifactSet>
             <includes>
               <include>com.github.scopt:scopt_2.10</include>
+              <include>org.apache.commons:commons-math3</include>
             </includes>
           </artifactSet>
         </configuration>

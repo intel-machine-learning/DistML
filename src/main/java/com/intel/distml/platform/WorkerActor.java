@@ -62,20 +62,6 @@ public class WorkerActor extends UntypedActor {
     State currentState = State.CREATED;
     int dataBusInitCounter = 0;
 
-    DataBus dataBusProxy = new DataBus() {
-        public <T> HashMap<Long, T> fetch(String matrixName, KeyCollection rowKeys, KeyCollection colsKeys) {
-
-            return dataBus.fetch(matrixName, rowKeys, colsKeys);
-        }
-
-        public <T> void push(String matrixName, HashMap<Long, T> update) {
-            dataBus.push(matrixName, update);
-        }
-        public <T> void push(String matrixName, T[] update) {
-            dataBus.push(matrixName, update);
-        }
-    };
-
 	public WorkerActor(final Session de, Model model, String monitorPath, int workerIndex) {
         this.monitor = getContext().actorSelection(monitorPath);
         this.workerIndex = workerIndex;
@@ -125,16 +111,16 @@ public class WorkerActor extends UntypedActor {
                         de.dataBus = dataBus;
                 }
             }
-        } else if (currentState == State.READY) {
-            Command cmd = (Command) msg;
-            if (cmd.cmd == CMD_DISCONNECT) {
-                for (ActorRef c : connections) {
-                    c.tell(new DataRelay.CloseAtOnce(), getSelf());
-                }
-                getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
-            } else if (cmd.cmd == CMD_STOP) {
-                getContext().stop(getSelf());
-            }
+//        } else if (currentState == State.READY) {
+//            Command cmd = (Command) msg;
+//            if (cmd.cmd == CMD_DISCONNECT) {
+//                for (ActorRef c : connections) {
+//                    c.tell(new DataRelay.CloseAtOnce(), getSelf());
+//                }
+//                getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
+//            } else if (cmd.cmd == CMD_STOP) {
+//                getContext().stop(getSelf());
+//            }
         }
         else unhandled(msg);
 	}

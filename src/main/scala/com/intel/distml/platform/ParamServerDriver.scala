@@ -9,13 +9,18 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 /**
  * Created by yunlong on 6/3/15.
  */
-class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broadcast[Model], actorSystemConfig : String, monitor : String, psCount : Int) extends Thread with Serializable {
+class ParamServerDriver[T : ClassTag] (@transient spark : SparkContext,
+                            modelBroadcast : Broadcast[Model],
+                            actorSystemConfig : String,
+                            monitor : String, psCount : Int,
+                             f : Function1[Model, T]) extends Thread with Serializable {
 
-  def paramServerTask(modelBroadcast : Broadcast[Model], prefix : String)(index: Int) : Int = {
+  def paramServerTask(modelBroadcast : Broadcast[Model], prefix : String, f : Function1[Model, T])(index: Int) : T = {
 
     println("starting server task")
 
@@ -28,13 +33,15 @@ class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broad
       ConfigFactory.load(parameterServerRemoteConfig))
 
     // Start parameter server
-    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(modelBroadcast.value, monitor, index, prefix),
+    val model = modelBroadcast.value
+    val parameterServer = parameterServerActorSystem.actorOf(ParameterServerActor.props(model, monitor, index, prefix),
       PARAMETER_SERVER_ACTOR_NAME)
 
     parameterServerActorSystem.awaitTermination()
 
     println("stopping server task")
-    1
+
+    f(model)
   }
 
   override def run() {
@@ -45,7 +52,7 @@ class ParamServerDriver (@transient spark : SparkContext, modelBroadcast : Broad
       da(i) = i
 
     val data = spark.parallelize(da, psCount)
-    val dummy = data.map(paramServerTask(modelBroadcast, prefix)).collect()
+    val dummy = data.map(paramServerTask(modelBroadcast, prefix, f)).collect()
     print("parameter servers finish their work.")
   }
 
