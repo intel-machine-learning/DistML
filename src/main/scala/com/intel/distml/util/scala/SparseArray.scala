@@ -40,7 +40,6 @@ valueType : Int) extends DMatrix(dim) {
   }
 
   private def readMap(buf: Array[Byte]): mutable.HashMap[K, V] = {
-    println("read buf size: " + buf.length + ", " + format)
     val data = new mutable.HashMap[K, V]
     var offset: Int = 0
     while (offset < buf.length) {
@@ -49,9 +48,7 @@ valueType : Int) extends DMatrix(dim) {
       val value: V = format.readValue(buf, offset).asInstanceOf[V]
       offset += format.valueSize
       data.put(key, value)
-      println("read: " + key + ", " + value)
     }
-    System.out.println("read map size: " + data.size)
     return data
   }
 
@@ -63,7 +60,6 @@ valueType : Int) extends DMatrix(dim) {
       format.writeKey(k.asInstanceOf[Number], buf, offset)
       offset += format.keySize
       offset = format.writeValue(v, buf, offset)
-      println("write: " + v)
     }
     return buf
   }

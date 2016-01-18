@@ -117,12 +117,6 @@ public class DoubleMatrixStore extends DataStore {
             for (int i = 0; i < row.length; i++) {
                 double update = format.readDouble(data, offset);
                 row[i] += update;
-                /*
-                if (row[i] < 0) {
-                    throw new IllegalStateException("invalid counter: " + key + ", " + i + ", " + row[i]);
-                }
-                */
-                //System.out.println("update matrix: " + key + ", " + i + ", old=" + row[i] + ", update=" + update);
                 offset += VALUE_SIZE;
             }
         }

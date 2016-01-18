@@ -1,5 +1,8 @@
 package com.intel.distml.util;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Iterator;
 
 /**
@@ -11,7 +14,12 @@ public class KeyRange extends KeyCollection {
 
     public long firstKey, lastKey;
 
+    KeyRange() {
+        super(KeyCollection.TYPE_RANGE);
+    }
+
     public KeyRange(long f, long l) {
+        super(KeyCollection.TYPE_RANGE);
         firstKey = f;
         lastKey = l;
     }
@@ -26,8 +34,38 @@ public class KeyRange extends KeyCollection {
         return (firstKey == range.firstKey) && (lastKey == range.lastKey);
     }
 
+    @Override
+    public int sizeAsBytes(DataDesc format) {
+        return super.sizeAsBytes(format) + 2 * format.keySize;
+    }
+
+    @Override
+    public void write(DataOutputStream out, DataDesc format) throws IOException {
+        super.write(out, format);
+
+        if (format.keyType == DataDesc.KEY_TYPE_INT) {
+            out.writeInt((int)firstKey);
+            out.writeInt((int)lastKey);
+        }
+        else {
+            out.writeLong(firstKey);
+            out.writeLong(lastKey);
+        }
+    }
+
+    @Override
+    public void read(DataInputStream in, DataDesc format) throws IOException {
+        if (format.keyType == DataDesc.KEY_TYPE_INT) {
+            firstKey = in.readInt();
+            lastKey = in.readInt();
+        }
+        else {
+            firstKey = in.readLong();
+            lastKey = in.readLong();
+        }
+    }
+
     public KeyCollection[] linearSplit(int hostNum) {
-        System.out.println("linearly partition key range [" + firstKey + ", " + lastKey + "] for " + hostNum + " hosts");
         KeyCollection[] sets = new KeyRange[hostNum];
 
         long start = firstKey;
@@ -42,7 +80,6 @@ public class KeyRange extends KeyCollection {
     }
 
     public KeyCollection[] hashSplit(int hostNum) {
-        System.out.println("hash partition key range [" + firstKey + ", " + lastKey + "] for " + hostNum + " hosts");
         KeyCollection[] sets = new KeyHash[hostNum];
 
         for (int i = 0; i < hostNum; i++) {

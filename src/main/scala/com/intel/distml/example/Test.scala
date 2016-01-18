@@ -1,28 +1,48 @@
 package com.intel.distml.example
 
-import java.util
-import scala.collection.JavaConversions._
+import com.intel.distml.api.Model
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.{SparkContext, SparkConf}
 
 /**
- * Created by yunlong on 12/28/15.
+ * Created by yunlong on 1/15/16.
  */
 object Test {
 
-  def main(args: Array[String]): Unit = {
+  def f(index: Int) : Int = {
 
-    val dt = new util.HashMap[java.lang.Long, Integer]
-    val wt = new util.HashMap[java.lang.Long, Array[Integer]]
-    println("before computing, dt=" + dt)
-    for (i <- 0 to 9) {
-      println("dt(" + i + ")=" + dt.get(i.toLong))
-    }
+    println("starting server task")
 
-    for (i <- 0 to 9) {
-      dt.put(i.toLong, new Integer(0))
-    }
-    println("after initialized, dt=" + dt)
-    for (i <- 0 to 9) {
-      println("dt(" + i + ")=" + dt.get(i))
-    }
+    Thread.sleep(2000)
+
+    println("stopping server task")
+    1
   }
+
+  def main(args : Array[String]): Unit = {
+    val conf = new SparkConf().setAppName("SparseTest").set("spark.default.parallelism", "3")
+    val sc = new SparkContext(conf)
+
+    var psCount = 3
+    if (args.length > 0) {
+      psCount = Integer.parseInt(args(0))
+    }
+
+    var da = new Array[Int](psCount)
+    for (i <- 0 to psCount - 1)
+      da(i) = i
+
+    val data = sc.parallelize(da, psCount)
+    println("prepare to start parameter servers: " + data.partitions.length)
+    for (i <- 0 to data.partitions.length-1) {
+      val p = data.partitions(i)
+      println("partition: " + p)
+    }
+    val dummy = data.map(f).collect()
+    println("parameter servers finish their work.")
+
+    sc.stop()
+  }
+
+
 }

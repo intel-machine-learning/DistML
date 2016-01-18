@@ -4,7 +4,7 @@ import com.intel.distml.api.Model;
 import com.intel.distml.util.DataDesc;
 import com.intel.distml.util.KeyCollection;
 
-import java.io.Serializable;
+import java.io.*;
 import java.util.HashMap;
 
 /**
@@ -14,43 +14,204 @@ import java.util.HashMap;
  */
 public class DataBusProtocol {
 
-    public static class ScamlMessage implements Serializable {}
+    public static final int MSG_FETCH_REQUEST   = 0;
+    public static final int MSG_FETCH_RESPONSE  = 1;
+    public static final int MSG_PUSH_REQUEST    = 2;
+    public static final int MSG_PUSH_RESPONSE   = 3;
 
-    public static class Data extends ScamlMessage {
+    public static abstract class DistMLMessage implements Serializable {
 
-        public final DataDesc format;
-        public final byte[] data;
+        public final int type;
 
-        public Data(DataDesc format, byte[] data) {
+        public DistMLMessage(int type) {
+            this.type = type;
+        }
+
+        public int sizeAsBytes(Model model) {
+            return 4;
+        }
+
+        public void write(DataOutputStream out, Model model) throws IOException {
+            out.writeInt(type);
+        }
+
+        public void read(DataInputStream in, Model model) throws IOException {
+            // assume type has been read or message construction
+        }
+
+        public static DistMLMessage readDistMLMessage(DataInputStream in, Model model) throws IOException {
+            int type = in.readInt();
+            DistMLMessage msg;
+            switch(type) {
+                case MSG_FETCH_REQUEST:
+                    msg = new FetchRequest();
+                    msg.read(in, model);
+                    break;
+                case MSG_PUSH_REQUEST:
+                    msg = new PushRequest();
+                    msg.read(in, model);
+                    break;
+                case MSG_FETCH_RESPONSE:
+                    msg = new FetchResponse();
+                    msg.read(in, model);
+                    break;
+                default:
+                    msg = new PushResponse();
+                    msg.read(in, model);
+                    break;
+            }
+
+            return msg;
+        }
+    }
+
+    public static abstract class Data extends DistMLMessage {
+
+        public DataDesc format;
+        public byte[] data;
+
+        public Data(int type) {
+            super(type);
+        }
+
+        public Data(int type, DataDesc format, byte[] data) {
+            super(type);
             this.format = format;
             this.data = data;
         }
 
         @Override
         public String toString() {
-            return "(PushRequest: len=" + data.length + ")";
+            return "(Data: len=" + data.length + ")";
+        }
+
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model) + format.sizeAsBytes() + 4 + data.length;
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+            format.write(out);
+            out.writeInt(data.length);
+            out.write(data);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
+            format = new DataDesc();
+            format.read(in);
+            int len = in.readInt();
+            data = new byte[len];
+            in.readFully(data);
         }
     }
 
-     public static class FetchRequest extends ScamlMessage {
+    public static class FetchRequest extends DistMLMessage {
 
-        final public String matrixName;
-        final public KeyCollection rows;
-        final public KeyCollection cols;
+        public String matrixName;
+        public KeyCollection rows;
+        public KeyCollection cols;
+
+        public FetchRequest() {
+            super(MSG_FETCH_REQUEST);
+        }
 
         public FetchRequest(String matrixName, KeyCollection rows, KeyCollection cols) {
+            super(MSG_FETCH_REQUEST);
             this.matrixName = matrixName;
             this.rows = rows;
             this.cols = cols;
+        }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            DataDesc format = model.getMatrix(matrixName).getFormat();
+            int len1 = matrixName.getBytes().length;
+            int len2 = rows.sizeAsBytes(format);
+            int len3 = cols.sizeAsBytes(format);
+            return  super.sizeAsBytes(model) + 4 + len1 + len2 + len3;
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+            byte[] d = matrixName.getBytes();
+            out.writeInt(d.length);
+            out.write(d);
+            DataDesc format = model.getMatrix(matrixName).getFormat();
+            rows.write(out, format);
+            cols.write(out, format);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
+            int len = in.readInt();
+            byte[] buf = new byte[len];
+            in.readFully(buf);
+            matrixName = new String(buf);
+            System.out.println("matrixName: " + matrixName);
+            DataDesc format = model.getMatrix(matrixName).getFormat();
+            rows = KeyCollection.readKeyCollection(in, format);
+            cols = KeyCollection.readKeyCollection(in, format);
+        }
+    }
+
+
+    public static class FetchResponse extends Data {
+
+        public String matrixName;
+
+        public FetchResponse() {
+            super(MSG_FETCH_RESPONSE);
+        }
+
+        public FetchResponse(String matrixName, DataDesc format, byte[] data) {
+            super(MSG_FETCH_RESPONSE, format, data);
+            this.matrixName = matrixName;
+        }
+
+        @Override
+        public String toString() {
+            return "(FetchResponse: " + matrixName + ", len=" + data.length + ")";
+        }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model) + 4 + matrixName.getBytes().length;
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+            byte[] d = matrixName.getBytes();
+            out.writeInt(d.length);
+            out.write(d);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
+            int len = in.readInt();
+            byte[] buf = new byte[len];
+            in.readFully(buf);
+            matrixName = new String(buf);
         }
     }
 
     public static class PushRequest extends Data {
 
-        public final String matrixName;
+        public String matrixName;
+
+        public PushRequest() {
+            super(MSG_PUSH_REQUEST);
+        }
+
 
         public PushRequest(String matrixName, DataDesc format, byte[] data) {
-            super(format, data);
+            super(MSG_PUSH_REQUEST, format, data);
             this.matrixName = matrixName;
         }
 
@@ -58,14 +219,60 @@ public class DataBusProtocol {
         public String toString() {
             return "(PushRequest: " + matrixName + ", len=" + data.length + ")";
         }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model) + 4 + matrixName.getBytes().length;
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+            byte[] d = matrixName.getBytes();
+            out.writeInt(d.length);
+            out.write(d);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
+
+            int len = in.readInt();
+            byte[] buf = new byte[len];
+            in.readFully(buf);
+            matrixName = new String(buf);
+        }
     }
 
-    public static class PushResponse extends ScamlMessage {
+    public static class PushResponse extends DistMLMessage {
         private static final long serialVersionUID = 1L;
 
-        final public boolean success;
+        public boolean success;
+
+        public PushResponse() {
+            super(MSG_PUSH_RESPONSE);
+        }
+
         public PushResponse(boolean success) {
+            super(MSG_PUSH_RESPONSE);
             this.success = success;
+        }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model) + 4;
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+            out.writeInt(success? 1 : 0);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
+            success = in.readInt() == 1;
         }
     }
 

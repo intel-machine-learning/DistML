@@ -1,3 +1,6 @@
+[2016-01-18]
+1. Reimplemented data transfer with pure socket
+
 [2016-01-08]
 1. Implemented LightLDA and MLR, now LR/LightLDA/MLR all works fine
 2. Add api support for Double Array/Matrix and Int Array/Matrix 

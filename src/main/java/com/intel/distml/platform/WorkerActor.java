@@ -11,6 +11,7 @@ import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Logger;
 import scala.concurrent.duration.Duration;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
@@ -23,7 +24,7 @@ public class WorkerActor extends UntypedActor {
     public static final int CMD_DISCONNECT = 1;
     public static final int CMD_STOP       = 2;
 
-    public static class Command extends DistMLMessage {
+    public static class Command implements Serializable {
         private static final long serialVersionUID = 1L;
 
         final public int cmd;
@@ -32,7 +33,7 @@ public class WorkerActor extends UntypedActor {
         }
     }
 
-    public static class RegisterRequest extends DistMLMessage {
+    public static class RegisterRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
         final public int globalWorkerIndex;
@@ -46,9 +47,10 @@ public class WorkerActor extends UntypedActor {
     int psCount;
     Session de;
 
-    InetSocketAddress[] psAddrs;
-    DataBusImpl dataBus;
-    ActorRef[] connections;
+    String[] psAddrs;
+    WorkerAgent agent;
+//    DataBusImpl dataBus;
+//    ActorRef[] connections;
     int workerIndex;
 
 	/*
@@ -93,34 +95,8 @@ public class WorkerActor extends UntypedActor {
                 this.psAddrs = res.psAddrs;
                 psCount = psAddrs.length;
 
-                final ActorRef tcpManager = Tcp.get(getContext().system()).manager();
-                connections = new ActorRef[psCount];
-                for (int i = 0; i < psCount; i++) {
-                    connections[i] = getContext().actorOf(DataRelay.props(getSelf()));
-                    tcpManager.tell(TcpMessage.connect(psAddrs[i]), connections[i]);
-                }
-                dataBus = new DataBusImpl(connections, model, getContext());
-
-                dataBusInitCounter = 0;
-
-            } else if (msg instanceof Tcp.Connected) {
-                dataBusInitCounter++;
-                if (dataBusInitCounter == psCount) {
-                    currentState = State.READY;
-                    if (de != null)
-                        de.dataBus = dataBus;
-                }
+                de.dataBus = new WorkerAgent(model, psAddrs);
             }
-//        } else if (currentState == State.READY) {
-//            Command cmd = (Command) msg;
-//            if (cmd.cmd == CMD_DISCONNECT) {
-//                for (ActorRef c : connections) {
-//                    c.tell(new DataRelay.CloseAtOnce(), getSelf());
-//                }
-//                getContext().system().scheduler().scheduleOnce(Duration.create(100, TimeUnit.MILLISECONDS), getSelf(), new Command(CMD_STOP), getContext().dispatcher(), getSelf());
-//            } else if (cmd.cmd == CMD_STOP) {
-//                getContext().stop(getSelf());
-//            }
         }
         else unhandled(msg);
 	}

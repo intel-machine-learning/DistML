@@ -51,7 +51,6 @@ public class DoubleArrayStore extends DataStore {
     public byte[] handleFetch(DataDesc format, KeyCollection rows) {
 
         KeyCollection keys = localRows.intersect(rows);
-        System.out.println("returned element size: " + keys.size() + ", " + format);
 
         int len = (int) ((format.keySize + VALUE_SIZE) * keys.size());
         byte[] buf = new byte[len];
@@ -67,11 +66,7 @@ public class DoubleArrayStore extends DataStore {
             double value = localData[indexOf(k)];
             format.writeValue(value, buf, offset);
             offset += VALUE_SIZE;
-
-            System.out.println("key: " + k + ", value: " + value + ", " + offset);
         }
-
-        System.out.println("returned data size: " + buf.length);
         return buf;
     }
 

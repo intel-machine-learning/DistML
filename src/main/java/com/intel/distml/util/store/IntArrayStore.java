@@ -66,7 +66,6 @@ public class IntArrayStore extends DataStore {
             int update = format.readInt(data, offset);
             offset += VALUE_SIZE;
 
-//            System.out.println("update array: " + key + ", old=" + localData[indexOf(key)] + ", update=" + update);
             localData[indexOf(key)] += update;
             if (localData[indexOf(key)] < 0) {
                 throw new IllegalStateException("invalid k counter: " + key + ", " + localData[indexOf(key)]);

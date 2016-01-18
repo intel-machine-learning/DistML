@@ -123,7 +123,6 @@ public class IntMatrixStore extends DataStore {
                 if (row[i] < 0) {
                     throw new IllegalStateException("invalid counter: " + key + ", " + i + ", " + row[i]);
                 }
-                //System.out.println("update matrix: " + key + ", " + i + ", old=" + row[i] + ", update=" + update);
                 offset += 4;
             }
         }

@@ -1,11 +1,11 @@
 package com.intel.distml.util;
 
-import java.io.Serializable;
+import java.io.*;
 
 /**
  * Created by yunlong on 12/30/15.
  */
-public class DataDesc implements Serializable {
+public final class DataDesc implements Serializable {
 
     public static final int DATA_TYPE_ARRAY       = 0;
     public static final int DATA_TYPE_MATRIX      = 1;
@@ -17,116 +17,7 @@ public class DataDesc implements Serializable {
     public static final int ELEMENT_TYPE_FLOAT    = 1;
     public static final int ELEMENT_TYPE_LONG     = 2;
     public static final int ELEMENT_TYPE_DOUBLE   = 3;
-/*
-    public static interface ElementType<K> extends Serializable {
-        int getType();
-        K readFrom(byte[] data, int offset);
-        void writeTo(K value, byte[] data, int offset);
-        int size();
-        boolean isZero(K k);
-    }
 
-    public static ElementType INTEGER = new ElementType<Integer>() {
-        @Override
-        public int getType() { return ELEMENT_TYPE_INT; }
-        @Override
-        public Integer readFrom(byte[] data, int offset) {
-            int targets = (data[offset] & 0xff) | ((data[offset+1] << 8) & 0xff00)
-                    | ((data[offset+2] << 16) >>> 8) | (data[offset+3] << 24);
-            return targets;
-        }
-        @Override
-        public void writeTo(Integer value, byte[] data, int offset) {
-            data[offset] = (byte) (value & 0xff);
-            data[offset+1] = (byte) ((value >> 8) & 0xff);
-            data[offset+2] = (byte) ((value >> 16) & 0xff);
-            data[offset+3] = (byte) (value >>> 24);
-        }
-        @Override
-        public int size() { return 4; }
-        @Override
-        public boolean isZero(Integer value) { return value == 0; }
-    };
-    public static ElementType FLOAT = new ElementType<Float>() {
-        @Override
-        public int getType() { return ELEMENT_TYPE_FLOAT; }
-        @Override
-        public Float readFrom(byte[] data, int offset) {
-            int targets = (data[offset] & 0xff) | ((data[offset+1] << 8) & 0xff00)
-                    | ((data[offset+2] << 16) >>> 8) | (data[offset+3] << 24);
-            return Float.intBitsToFloat(targets);
-        }
-        @Override
-        public void writeTo(Float v, byte[] data, int offset) {
-            int value = Float.floatToIntBits(v);
-            data[offset] = (byte) (value & 0xff);
-            data[offset+1] = (byte) ((value >> 8) & 0xff);
-            data[offset+2] = (byte) ((value >> 16) & 0xff);
-            data[offset+3] = (byte) (value >>> 24);
-        }
-        @Override
-        public int size() { return 4; }
-        @Override
-        public boolean isZero(Float value) { return value < 1e-6; }
-    };
-    public static ElementType LONG = new ElementType<Long>() {
-        @Override
-        public int getType() { return ELEMENT_TYPE_LONG; }
-        @Override
-        public Long readFrom(byte[] data, int offset) {
-            long targets = (data[offset] & 0xff) | ((data[offset+1] << 8) & 0xff00)
-                    | ((data[offset+2] << 16) >>> 8) | (data[offset+3] << 24)
-                    | ((data[offset+4] << 32) >>> 8) | (data[offset+5] << 40)
-                    | ((data[offset+6] << 48) >>> 8) | (data[offset+7] << 56);
-
-            return targets;
-        }
-        @Override
-        public void writeTo(Long value, byte[] data, int offset) {
-            data[offset] = (byte) (value & 0xff);
-            data[offset+1] = (byte) ((value >> 8) & 0xff);
-            data[offset+2] = (byte) ((value >> 16) & 0xff);
-            data[offset+3] = (byte) ((value >> 24) & 0xff);
-            data[offset+4] = (byte) ((value >> 32) & 0xff);
-            data[offset+5] = (byte) ((value >> 40) & 0xff);
-            data[offset+6] = (byte) ((value >> 48) & 0xff);
-            data[offset+7] = (byte) ((value >> 56) & 0xff);
-        }
-        @Override
-        public int size() { return 8; }
-        @Override
-        public boolean isZero(Long value) { return value == 0; }
-    };
-    public static ElementType DOUBLE = new ElementType<Double>() {
-        @Override
-        public int getType() { return ELEMENT_TYPE_DOUBLE; }
-        @Override
-        public Double readFrom(byte[] data, int offset) {
-            long targets = (data[offset] & 0xff) | ((data[offset+1] << 8) & 0xff00)
-                    | ((data[offset+2] << 16) >>> 8) | (data[offset+3] << 24)
-                    | ((data[offset+4] << 32) >>> 8) | (data[offset+5] << 40)
-                    | ((data[offset+6] << 48) >>> 8) | (data[offset+7] << 56);
-
-            return Double.longBitsToDouble(targets);
-        }
-        @Override
-        public void writeTo(Double v, byte[] data, int offset) {
-            long value = Double.doubleToLongBits(v);
-            data[offset] = (byte) (value & 0xff);
-            data[offset+1] = (byte) ((value >> 8) & 0xff);
-            data[offset+2] = (byte) ((value >> 16) & 0xff);
-            data[offset+3] = (byte) ((value >> 24) & 0xff);
-            data[offset+4] = (byte) ((value >> 32) & 0xff);
-            data[offset+5] = (byte) ((value >> 40) & 0xff);
-            data[offset+6] = (byte) ((value >> 48) & 0xff);
-            data[offset+7] = (byte) ((value >> 56) & 0xff);
-        }
-        @Override
-        public int size() { return 8; }
-        @Override
-        public boolean isZero(Double value) { return value < 1e-6; }
-    };
-*/
     public int dataType;
     public int keyType;
     public int valueType;
@@ -136,6 +27,9 @@ public class DataDesc implements Serializable {
 
     public int keySize;
     public int valueSize;
+
+    public DataDesc() {
+    }
 
     public DataDesc(int dataType, int keyType, int valueType) {
         this(dataType, keyType, valueType, false, true);
@@ -154,6 +48,77 @@ public class DataDesc implements Serializable {
 
     public String toString() {
         return "" + dataType + ", " + keyType + ", " + keySize + ", " + valueType + ", " + valueSize;
+    }
+
+    public int sizeAsBytes() {
+        return 20;  // keySize and valueSize are calculated in fly
+    }
+
+    public void write(DataOutputStream out) throws IOException {
+        out.writeInt(dataType);
+        out.writeInt(keyType);
+        out.writeInt(valueType);
+        out.writeInt(denseRow ? 1 : 0);
+        out.writeInt(denseColumn ? 1 : 0);
+    }
+
+    public void read(DataInputStream in) throws IOException {
+        dataType = in.readInt();
+        keyType = in.readInt();
+        valueType = in.readInt();
+        denseRow = in.readInt() == 1;
+        denseColumn = in.readInt() == 1;
+
+        this.keySize = (keyType == KEY_TYPE_INT)? 4 : 8;
+        this.valueSize = ((valueType == ELEMENT_TYPE_INT) || (valueType == ELEMENT_TYPE_FLOAT))? 4 : 8;
+    }
+
+    public Number readKey(DataInputStream is) throws IOException {
+        if (keyType == KEY_TYPE_INT) {
+            return is.readInt();
+        }
+        else {
+            return is.readLong();
+        }
+    }
+
+
+    public void writeKey(Number v, DataOutputStream os) throws IOException {
+        if (keyType == KEY_TYPE_INT) {
+            os.writeInt(v.intValue());
+        }
+        else {
+            os.writeLong(v.longValue());
+        }
+    }
+
+    public Object readValue(DataInputStream is) throws IOException {
+        switch(valueType) {
+            case ELEMENT_TYPE_INT:
+                return is.readInt();
+            case ELEMENT_TYPE_FLOAT:
+                return is.readFloat();
+            case ELEMENT_TYPE_LONG:
+                return is.readLong();
+            case ELEMENT_TYPE_DOUBLE:
+                return is.readDouble();
+        }
+
+        throw new IllegalStateException("invalid value type: " + valueType);
+    }
+
+    public void writeValue(Object value, DataOutputStream os) throws IOException {
+        switch(valueType) {
+            case ELEMENT_TYPE_INT:
+                os.writeInt((Integer) value);
+            case ELEMENT_TYPE_FLOAT:
+                os.writeFloat((Float) value);
+            case ELEMENT_TYPE_LONG:
+                os.writeLong((Long) value);
+            case ELEMENT_TYPE_DOUBLE:
+                os.writeDouble((Double)value);
+        }
+        throw new IllegalStateException("invalid value type: " + valueType);
     }
 
     public Number readKey(byte[] data, int offset) {

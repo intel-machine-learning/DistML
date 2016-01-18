@@ -44,7 +44,6 @@ public abstract class SparseArray<K, V> extends DMatrix {
     }
 
     private HashMap<K, V> readMap(byte[] buf) {
-        System.out.println("read buf size: " + buf.length + ", " + format);
         HashMap<K, V> data = new HashMap<K, V>();
 
         int offset = 0;
@@ -55,11 +54,9 @@ public abstract class SparseArray<K, V> extends DMatrix {
             V value = (V) format.readValue(buf, offset);
             offset += format.valueSize;
 
-            //System.out.println("key: " + key + ", value: " + value + ", " + offset);
             data.put(key, value);
         }
 
-        System.out.println("read map size: " + data.size());
         return data;
     }
 
@@ -73,7 +70,6 @@ public abstract class SparseArray<K, V> extends DMatrix {
             offset += format.keySize;
 
             offset = format.writeValue(entry.getValue(), buf, offset);
-            //offset += format.valueSize;
         }
 
         return buf;

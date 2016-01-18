@@ -1,5 +1,8 @@
 package com.intel.distml.util;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Iterator;
 
@@ -8,9 +11,60 @@ import java.util.Iterator;
  */
 public abstract class KeyCollection implements Serializable {
 
-    public static final KeyCollection EMPTY = new EMPTY_KEYS();
+    public static final int TYPE_ALL    = 0;
+    public static final int TYPE_EMPTY  = 1;
+    public static final int TYPE_RANGE  = 2;
+    public static final int TYPE_LIST   = 3;
+    public static final int TYPE_HASH   = 4;
+
+    public static final KeyCollection EMPTY = new EmptyKeys();
 //    public static final KeyCollection SINGLE = new SINGLE_KEYS();
-    public static final KeyCollection ALL = new ALL_KEYS();
+    public static final KeyCollection ALL = new AllKeys();
+
+    public int type;
+
+    public KeyCollection(int type) {
+        this.type = type;
+    }
+
+    public int sizeAsBytes(DataDesc format) {
+        return 4;
+    }
+
+    public void write(DataOutputStream out, DataDesc format) throws IOException {
+        out.writeInt(type);
+    }
+
+    public void read(DataInputStream in, DataDesc format) throws IOException {
+    }
+
+    public static KeyCollection readKeyCollection(DataInputStream in, DataDesc format) throws IOException {
+        int type = in.readInt();
+        KeyCollection ks;
+        switch(type) {
+            case TYPE_ALL:
+                return ALL;
+            case TYPE_EMPTY:
+                return EMPTY;
+
+            case TYPE_LIST:
+                ks = new KeyList();
+                break;
+
+            case TYPE_RANGE:
+                ks = new KeyRange();
+                break;
+
+            default:
+                ks = new KeyHash();
+                break;
+
+        }
+
+        ks.read(in, format);
+
+        return ks;
+    }
 
     public abstract boolean contains(long key);
 
@@ -21,7 +75,6 @@ public abstract class KeyCollection implements Serializable {
     public abstract long size();
 
     public KeyCollection intersect(KeyCollection keys) {
-        System.out.println("intersect: " + this + ", " + keys);
 
         if (keys.equals(KeyCollection.ALL)) {
             return this;
@@ -44,11 +97,15 @@ public abstract class KeyCollection implements Serializable {
         return result;
     }
 
-    public static class EMPTY_KEYS extends KeyCollection {
+    public static class EmptyKeys extends KeyCollection {
+
+        public EmptyKeys() {
+            super(TYPE_EMPTY);
+        }
 
         @Override
         public boolean equals(Object obj) {
-            return (obj instanceof EMPTY_KEYS);
+            return (obj instanceof EmptyKeys);
         }
 
         @Override
@@ -91,63 +148,16 @@ public abstract class KeyCollection implements Serializable {
         }
     };
 
-    public static class SINGLE_KEYS extends KeyCollection {
+    public static class AllKeys extends KeyCollection {
+
+        public AllKeys() {
+            super(TYPE_ALL);
+        }
+
 
         @Override
         public boolean equals(Object obj) {
-            return (obj instanceof SINGLE_KEYS);
-        }
-
-        @Override
-        public boolean contains(long key) {
-            throw new UnsupportedOperationException("This is an SINGLE_KEYS instance, not iterable.");
-        }
-
-        @Override
-        public KeyCollection intersect(KeyCollection keys) {
-            if (keys.isEmpty()) {
-                return keys;
-            }
-            if (keys instanceof SINGLE_KEYS) {
-                return this;
-            }
-            if (keys instanceof ALL_KEYS) {
-                return this;
-            }
-            throw new UnsupportedOperationException("This is an SINGLE_KEYS instance, not iterable.");
-        }
-
-        @Override
-        public Iterator<Long> iterator() {
-            throw new UnsupportedOperationException("This is an SINGLE_KEYS instance, not iterable.");
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return false;
-        }
-/*
-        @Override
-        public PartitionInfo partitionEqually(int hostNum) {
-            throw new UnsupportedOperationException("This is an SINGLE_KEYS instance, not partitionable");
-        }
-
-        @Override
-        public KeyCollection[] split(int hostNum) {
-            throw new UnsupportedOperationException("This is an SINGLE_KEYS instance, not partitionable");
-        }
-*/
-        @Override
-        public long size() {
-            return 1;
-        }
-    };
-
-    public static class ALL_KEYS extends KeyCollection {
-
-        @Override
-        public boolean equals(Object obj) {
-            return (obj instanceof ALL_KEYS);
+            return (obj instanceof AllKeys);
         }
 
         @Override

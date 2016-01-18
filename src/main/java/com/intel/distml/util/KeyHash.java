@@ -1,5 +1,8 @@
 package com.intel.distml.util;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.Iterator;
 
 /**
@@ -16,11 +19,13 @@ public class KeyHash extends KeyCollection {
 
     private long first, last;
 
-    public KeyHash(int hashQuato, int hashIndex, long totalKeyNum) {
-        this(hashQuato, hashIndex, 0L, totalKeyNum - 1);
+    KeyHash() {
+        super(KeyCollection.TYPE_HASH);
     }
 
     public KeyHash(int hashQuato, int hashIndex, long minKey, long maxKey) {
+        super(KeyCollection.TYPE_HASH);
+
         this.hashQuato = hashQuato;
         this.hashIndex = hashIndex;
         this.minKey = minKey;
@@ -45,6 +50,52 @@ public class KeyHash extends KeyCollection {
         KeyHash o = (KeyHash)obj;
         return (hashQuato == o.hashQuato) && (hashIndex == o.hashIndex) && (minKey == o.minKey) && (maxKey == o.maxKey);
     }
+
+    @Override
+    public int sizeAsBytes(DataDesc format) {
+        return super.sizeAsBytes(format) + 8 + 4 * format.keySize;
+    }
+
+    @Override
+    public void write(DataOutputStream out, DataDesc format) throws IOException {
+        super.write(out, format);
+
+        out.writeInt(hashQuato);
+        out.writeInt(hashIndex);
+
+        if (format.keyType == DataDesc.KEY_TYPE_INT) {
+            out.writeInt((int)minKey);
+            out.writeInt((int)maxKey);
+            out.writeInt((int)first);
+            out.writeInt((int)last);
+        }
+        else {
+            out.writeLong(minKey);
+            out.writeLong(maxKey);
+            out.writeLong(first);
+            out.writeLong(last);
+        }
+    }
+
+    @Override
+    public void read(DataInputStream in, DataDesc format) throws IOException {
+        //super.read(in);
+        hashQuato = in.readInt();
+        hashIndex = in.readInt();
+        if (format.keyType == DataDesc.KEY_TYPE_INT) {
+            minKey = in.readInt();
+            maxKey = in.readInt();
+            first = in.readInt();
+            last = in.readInt();
+        }
+        else {
+            minKey = in.readLong();
+            maxKey = in.readLong();
+            first = in.readLong();
+            last = in.readLong();
+        }
+    }
+
 
     public long size() {
         return (last - first) / hashQuato + 1;

@@ -17,33 +17,7 @@ import static akka.dispatch.Futures.sequence;
 
 public class MonitorActor extends UntypedActor {
 
-    public static class WorkerStarterRegister extends DistMLMessage {
-        private static final long serialVersionUID = 1L;
-
-        public WorkerStarterRegister() {
-
-        }
-
-        public String toString() {
-            return "WorkerStarterRegister";
-        }
-    }
-
-    public static class ParameterServersReady extends DistMLMessage {
-        private static final long serialVersionUID = 1L;
-
-        final public ActorRef[] parameterServers;   // parameter servers
-
-        public ParameterServersReady(ActorRef[] parameterServers) {
-            this.parameterServers = parameterServers;
-        }
-
-        public String toString() {
-            return "ParameterServersReady";
-        }
-    }
-
-    public static class TrainingDone extends DistMLMessage {
+    public static class TrainingDone implements Serializable {
         private static final long serialVersionUID = 1L;
 
         public TrainingDone() {
@@ -55,13 +29,13 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
-    public static class RegisterResponse extends DistMLMessage {
+    public static class RegisterResponse implements Serializable {
         private static final long serialVersionUID = 1L;
 
         final public ActorRef[] parameterServers;   // parameter servers
-        final public InetSocketAddress[] psAddrs;   // parameter servers address
+        final public String[] psAddrs;   // parameter servers address
 
-        public RegisterResponse(ActorRef[] parameterServers, InetSocketAddress[] psAddrs) {
+        public RegisterResponse(ActorRef[] parameterServers, String[] psAddrs) {
             this.parameterServers = parameterServers;
             this.psAddrs = psAddrs;
         }
@@ -71,22 +45,10 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
-    public static class VariableChange extends DistMLMessage {
-        private static final long serialVersionUID = 1L;
-
-        final public String name;
-        final public Object value;
-
-        public VariableChange(String name, Object value) {
-            this.name = name;
-            this.value = value;
-        }
-    }
-
     private int psCount;
 
     private ActorRef[] parameterServers;
-    private InetSocketAddress[] psAddrs;
+    private String[] psAddrs;
     private ActorRef[] serverDataBuses;
 
     private LinkedList<ActorRef> workers;
@@ -118,7 +80,7 @@ public class MonitorActor extends UntypedActor {
     public MonitorActor(Model model) {
         this.psCount = model.psCount;
         this.parameterServers = new ActorRef[psCount];
-        this.psAddrs = new InetSocketAddress[psCount];
+        this.psAddrs = new String[psCount];
         this.workers = new LinkedList<ActorRef>();
 
         this.model = model;
@@ -144,15 +106,6 @@ public class MonitorActor extends UntypedActor {
                 + innerState.psCounter + ", "
                 + getSender() );
         if (innerState.currentState == State.CREATED) {
-//            if (msg instanceof WorkerStarterRegister) {
-//                this.workerStarter = getSender();
-//            }
-//
-//            if (workerStarter != null) {
-//                setState(State.PS_REGISTRATION);
-//            }
-//        } else if (innerState.currentState == State.PS_REGISTRATION) {
-
             if (msg instanceof ParameterServerActor.RegisterRequest) {
                 ParameterServerActor.RegisterRequest req = (ParameterServerActor.RegisterRequest)msg;
                 log("Parameter server registered: " + getSender());

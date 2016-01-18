@@ -165,20 +165,10 @@ object SparseLR {
           }
 
           val w = wd.fetch(keys, session)
-//          var i = 0
-//          val it2 = keys.iterator()
-//          while(it2.hasNext) {
-//            val key = it2.next()
-//            if (!w.containsKey(key.toInt)) {
-//              throw new Exception("key not found:" + key)
-//            }
-//            println("w[" + key + "] = " + w(key.intValue()))
-//            i += 1
-//          }
 
           val w_old = new util.HashMap[Long, Double]
           for ((key, value) <- w) {
-            println("w[" + key + "] = " + value)
+            //println("w[" + key + "] = " + value)
             w_old.put(key, value)
           }
 
@@ -191,9 +181,6 @@ object SparseLR {
 
             val err = p.eta * (h - label)
             for ((k, v) <- x) {
-//              println("k: " + k)
-//              println("w: " + w(k))
-//              println("v: " + v)
               w.put(k, w(k) - err * v)
             }
 

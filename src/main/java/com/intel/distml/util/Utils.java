@@ -13,7 +13,6 @@ import java.util.Enumeration;
 public class Utils {
 
     public static String getLocalIP(String networkPrefix) throws SocketException {
-        System.out.println("get local ip with prefix: " + networkPrefix);
         String ipAddr = "--";
 
         Enumeration allNetInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -21,7 +20,6 @@ public class Utils {
         while (allNetInterfaces.hasMoreElements())
         {
             NetworkInterface netInterface = (NetworkInterface) allNetInterfaces.nextElement();
-            System.out.println(netInterface.getName());
             Enumeration addresses = netInterface.getInetAddresses();
             while (addresses.hasMoreElements())
             {
@@ -31,13 +29,13 @@ public class Utils {
                     if (networkPrefix != null) {
                         if (ip.getHostAddress().startsWith(networkPrefix)) {
                             ipAddr = ip.getHostAddress();
-                            System.out.println("IP = " + ipAddr);
+                            System.out.println("Server IP = " + ipAddr);
                         }
                     }
                     else {
                         if (!ip.getHostAddress().startsWith("127")) {
                             ipAddr = ip.getHostAddress();
-                            System.out.println("IP = " + ipAddr);
+                            System.out.println("Server IP = " + ipAddr);
                         }
                     }
                 }
@@ -47,7 +45,4 @@ public class Utils {
         return ipAddr;
     }
 
-    public static void debug(String str) {
-        System.out.println("[" + (new Date()) + "]" + str);
-    }
 }

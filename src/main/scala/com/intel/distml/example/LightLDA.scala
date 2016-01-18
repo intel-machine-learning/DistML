@@ -5,6 +5,7 @@ import java.util
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 
 import _root_.scala.collection.JavaConversions._
 
@@ -135,7 +136,7 @@ object LightLDA {
 
 //      println("=============== random initializing done ==================")
       (doctopic, topics.toArray)
-    }).cache
+    }).persist(StorageLevel.MEMORY_AND_DISK)
 
     var statistics = data.map(d => (1, d._2.length)).reduce((a, b) => (a._1 + b._1, a._2 + b._2))
 
@@ -154,14 +155,13 @@ object LightLDA {
     val monitorPath = dm.monitorPath
 
     //data = data.repartition(1)
-
     data.mapPartitionsWithIndex(init(p, m, monitorPath)).count
 
     for (iter <- 0 to p.maxIterations - 1) {
       println("================= iteration: " + iter + " =====================")
       //data.mapPartitionsWithIndex(verify(p, m, monitorPath)).count()
 
-      data = data.mapPartitionsWithIndex(train(p, m, monitorPath)).cache
+      data = data.mapPartitionsWithIndex(train(p, m, monitorPath)).persist(StorageLevel.MEMORY_AND_DISK)
       val count = data.count
 
       if (p.showPlexity) {
@@ -286,6 +286,9 @@ object LightLDA {
 
     val samples = new util.LinkedList[(Array[Int], Array[(Int, Int)])]
 
+    var start = System.currentTimeMillis()
+    var end = start
+
     while (it.hasNext) {
       samples.clear()
       var count = 0
@@ -316,6 +319,9 @@ object LightLDA {
         wt_old.put(key, ts)
       }
 
+      end = System.currentTimeMillis()
+      println("prefetch: " + (end-start))
+      start = end
       //showDT(dt)
       //show(wt)
       //show(p, samples)
@@ -325,12 +331,20 @@ object LightLDA {
       for (w <- keys.keys)
         buildAliasTable(w.toInt, p.alpha, p.beta, p.alpha_sum, p.beta_sum, p.k, p.V, wt, dt, q_w_proportion_, tables)
 
+      end = System.currentTimeMillis()
+      println("build table: " + (end-start))
+      start = end
+
       val u01 = new UniformRealDistribution
       val u0k = new UniformIntegerDistribution(0, p.k-1)
       val r = new java.util.Random()
 
       for (doc <- samples)
         sampleOneDoc(p, doc, wt, dt, tables, r, u01, u0k)
+
+      end = System.currentTimeMillis()
+      println("sample: " + (end-start))
+      start = end
 
       //showDT(dt)
       //show(wt)
@@ -350,9 +364,12 @@ object LightLDA {
         }
       }
 
-
       dtm.push(dt, session)
       wtm.push(wt, session)
+
+      end = System.currentTimeMillis()
+      println("push: " + (end-start))
+      start = end
 
       for (i <- 0 to samples.length-1) {
         result.append(samples(i))
