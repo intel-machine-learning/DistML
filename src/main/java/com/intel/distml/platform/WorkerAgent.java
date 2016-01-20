@@ -8,10 +8,7 @@ import akka.util.ByteStringBuilder;
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.DataBus;
 import com.intel.distml.api.Model;
-import com.intel.distml.util.Constants;
-import com.intel.distml.util.DataDesc;
-import com.intel.distml.util.KeyCollection;
-import com.intel.distml.util.Logger;
+import com.intel.distml.util.*;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 
@@ -39,7 +36,7 @@ public class WorkerAgent implements DataBus  {
         servers = new Socket[psInfo.length];
         try {
             for (int i = 0; i < psInfo.length; i++) {
-                log("connect to " + psInfo[i]);
+                System.out.println("connect to " + psInfo[i]);
                 String[] info = psInfo[i].split(":");
                 servers[i] = new Socket(info[0], Integer.parseInt(info[1]));
                 servers[i].setSoTimeout(1000000);
@@ -171,6 +168,7 @@ public class WorkerAgent implements DataBus  {
                 os.writeInt(len);
                 msg.write(os, model);
 
+                Utils.waitUntil(is, 4);
                 resultSize = is.readInt();
                 log("result size: " + resultSize);
 

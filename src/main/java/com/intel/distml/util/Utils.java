@@ -1,5 +1,7 @@
 package com.intel.distml.util;
 
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
@@ -45,4 +47,7 @@ public class Utils {
         return ipAddr;
     }
 
+    public static void waitUntil(DataInputStream is, int size) throws IOException {
+        while(is.available() < size) { try { Thread.sleep(1); } catch (Exception e){}}
+    }
 }

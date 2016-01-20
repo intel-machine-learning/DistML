@@ -3,6 +3,7 @@ package com.intel.distml.platform;
 import com.intel.distml.api.Model;
 import com.intel.distml.util.DataDesc;
 import com.intel.distml.util.KeyCollection;
+import com.intel.distml.util.Utils;
 
 import java.io.*;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ public class DataBusProtocol {
         }
 
         public static DistMLMessage readDistMLMessage(DataInputStream in, Model model) throws IOException {
+            Utils.waitUntil(in, 4);
             int type = in.readInt();
             DistMLMessage msg;
             switch(type) {
@@ -101,6 +103,7 @@ public class DataBusProtocol {
         public void read(DataInputStream in, Model model) throws IOException {
             super.read(in, model);
             format = new DataDesc();
+            Utils.waitUntil(in, format.sizeAsBytes() + 4);
             format.read(in);
             int len = in.readInt();
             data = new byte[len];
@@ -148,6 +151,7 @@ public class DataBusProtocol {
         @Override
         public void read(DataInputStream in, Model model) throws IOException {
             super.read(in, model);
+            Utils.waitUntil(in, 4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -194,6 +198,7 @@ public class DataBusProtocol {
         @Override
         public void read(DataInputStream in, Model model) throws IOException {
             super.read(in, model);
+            Utils.waitUntil(in, 4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -237,6 +242,7 @@ public class DataBusProtocol {
         public void read(DataInputStream in, Model model) throws IOException {
             super.read(in, model);
 
+            Utils.waitUntil(in, 4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -272,6 +278,7 @@ public class DataBusProtocol {
         @Override
         public void read(DataInputStream in, Model model) throws IOException {
             super.read(in, model);
+            Utils.waitUntil(in, 4);
             success = in.readInt() == 1;
         }
     }

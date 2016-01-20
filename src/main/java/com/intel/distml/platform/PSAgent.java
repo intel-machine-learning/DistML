@@ -133,6 +133,7 @@ public class PSAgent extends Thread {
             try {
                 while(true) {
                     log("reading...");
+                    Utils.waitUntil(is, 4);
                     int reqSize = is.readInt();
                     log("request size: " + reqSize);
                     DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(is, model);

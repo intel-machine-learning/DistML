@@ -39,6 +39,7 @@ public abstract class KeyCollection implements Serializable {
     }
 
     public static KeyCollection readKeyCollection(DataInputStream in, DataDesc format) throws IOException {
+        Utils.waitUntil(in, 4);
         int type = in.readInt();
         KeyCollection ks;
         switch(type) {
@@ -61,6 +62,7 @@ public abstract class KeyCollection implements Serializable {
 
         }
 
+        Utils.waitUntil(in, ks.sizeAsBytes(format));
         ks.read(in, format);
 
         return ks;
