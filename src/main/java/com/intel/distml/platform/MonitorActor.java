@@ -1,21 +1,54 @@
 package com.intel.distml.platform;
 
 import java.io.Serializable;
-import java.net.InetSocketAddress;
 import java.util.LinkedList;
 
 import akka.actor.*;
 import akka.japi.Creator;
 
-import akka.pattern.Patterns;
 import com.intel.distml.api.Model;
 import com.intel.distml.util.*;
-import scala.concurrent.Await;
-import scala.concurrent.Future;
-
-import static akka.dispatch.Futures.sequence;
 
 public class MonitorActor extends UntypedActor {
+
+    public static class DriverRequest implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        boolean done;
+        public DriverRequest() {
+            done = false;
+        }
+
+        public String toString() {
+            return "DriverRequest";
+        }
+    }
+
+    public static class LoadModel extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String path;
+        public LoadModel(String path) {
+            this.path = path;
+        }
+
+        public String toString() {
+            return "LoadModel";
+        }
+    }
+
+    public static class SaveModel extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String path;
+        public SaveModel(String path) {
+            this.path = path;
+        }
+
+        public String toString() {
+            return "SaveModel";
+        }
+    }
 
     public static class TrainingDone implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -45,7 +78,7 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
-    private int psCount;
+    private final int psCount;
 
     private ActorRef[] parameterServers;
     private String[] psAddrs;
@@ -56,26 +89,9 @@ public class MonitorActor extends UntypedActor {
     private Model model;
     private ActorRef workerStarter;
 
+    private DriverRequest pendingRequest;
+    private int psCounter = 0;
 
-    /*
-     * Dynamic State
-     */
-    public static enum State {
-        CREATED,
-        PS_REGISTRATION,
-        INIT_PARAMETER_SERVER,
-        MONITOR_TRAINING,
-        DONE
-        // New states later
-    }
-
-    // Worker Lead State
-    private class InnerStateData {
-        State currentState = State.CREATED;
-        int psCounter = 0;
-//        int workerCounter = 0;
-    }
-    private InnerStateData innerState = new InnerStateData();
 
     public MonitorActor(Model model) {
         this.psCount = model.psCount;
@@ -85,8 +101,8 @@ public class MonitorActor extends UntypedActor {
 
         this.model = model;
 
-        setState(State.CREATED);
-        innerState.psCounter = 0;
+        pendingRequest = null;
+        psCounter = 0;
 
         log("Monitor created, psCount:" + psCount);
     }
@@ -102,51 +118,50 @@ public class MonitorActor extends UntypedActor {
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        log("onReceive: " + msg + ", " + innerState.currentState + ", "
-                + innerState.psCounter + ", "
-                + getSender() );
-        if (innerState.currentState == State.CREATED) {
-            if (msg instanceof ParameterServerActor.RegisterRequest) {
-                ParameterServerActor.RegisterRequest req = (ParameterServerActor.RegisterRequest)msg;
-                log("Parameter server registered: " + getSender());
+        log("onReceive: " + msg + ", "  + getSender() );
 
-                parameterServers[req.parameterServerIndex] = getSender();
-                psAddrs[req.parameterServerIndex] = req.addr;
-                ++innerState.psCounter;
+        if (msg instanceof PSActor.RegisterRequest) {
+            PSActor.RegisterRequest req = (PSActor.RegisterRequest) msg;
+            log("Parameter server registered: " + getSender());
 
-                log("counter: " + innerState.psCounter + ", " + psCount);
-                if (innerState.psCounter == psCount) {
-                    setState(State.INIT_PARAMETER_SERVER);
-                    for (int i = 0; i < parameterServers.length; i++) {
-                        parameterServers[i].tell(new ParameterServerActor.ModelSetup(), getSelf());
-                    }
-                }
+            parameterServers[req.parameterServerIndex] = getSender();
+            psAddrs[req.parameterServerIndex] = req.addr;
+            psCounter++;
+
+            log("counter: " + psCounter + ", " + psCount);
+            if (psCounter == psCount) {
+                model.psReady = true;
+                psCounter = 0;
             }
         }
-        else if (innerState.currentState == State.INIT_PARAMETER_SERVER) {
-            if (msg instanceof ParameterServerActor.ModelSetupDone) {
-                innerState.psCounter++;
-                if (innerState.psCounter == psCount) {
-                    setState(State.MONITOR_TRAINING);
-                    model.psReady = true;
-                    //workerStarter.tell(new ParameterServersReady(parameterServers), getSelf());
-                }
-            } else unhandled(msg);
-        }
-        else if (innerState.currentState == State.MONITOR_TRAINING) {
-            if (msg instanceof WorkerActor.RegisterRequest) {
-                WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
-                //log("worker registered: " + info.globalWorkerIndex);
-
-                workers.add(getSender());
-                //workers[info.globalWorkerIndex] = getSender();
-                getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
-            } else if (msg instanceof TrainingDone) {
-                setState(State.DONE);
-                stopAll();
+        else if (msg instanceof LoadModel) {
+            pendingRequest = (DriverRequest) msg;
+            String path = ((LoadModel) msg).path;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_LOAD, path), getSelf());
             }
+        }
+        else if (msg instanceof SaveModel) {
+            pendingRequest = (DriverRequest) msg;
+            String path = ((SaveModel) msg).path;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_SAVE, path), getSelf());
+            }
+        }
+        else if (msg instanceof PSActor.ModelSetupDone) {
+            psCounter++;
+            if (psCounter == psCount) {
+                pendingRequest.done = true;
+                psCounter = 0;
+            }
+        }
+        else if (msg instanceof WorkerActor.RegisterRequest) {
+            WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
 
-            else unhandled(msg);
+            workers.add(getSender());
+            getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
+        } else if (msg instanceof TrainingDone) {
+            stopAll();
         }
     }
 
@@ -156,43 +171,28 @@ public class MonitorActor extends UntypedActor {
         getContext().system().shutdown();
     }
 
-    /*
-     * State Transition
-     */
-    private void setState(State newState) {
-        innerState.currentState = newState;
-        if (newState == State.INIT_PARAMETER_SERVER) {
-            innerState.psCounter = 0;
-        }
-//        else if (newState == State.MONITOR_TRAINING) {
-//            innerState.workerCounter = 0;
-//        }
-    }
-
     private void stopAll() {
-        log("Start stopping all sub actor systems");
         stopActors(parameterServers);
-        log("All parameter servers stopped");
-
-//        stopActors(workers);
-//        log("All workers stopped");
 
         getContext().stop(getSelf());
         log("Start stopping monitor");
     }
 
     private void stopActors(ActorRef[] actors) {
-        LinkedList<Future<Boolean>> stopFutures = new LinkedList<Future<Boolean>>();
-        Future<Iterable<Boolean>> stopFuture;
-        for (ActorRef actor : actors)
-            stopFutures.add(Patterns.gracefulStop(actor, Constants.STOP_FUTURE_TIMEOUT_DURATION));
-        stopFuture = sequence(stopFutures, getContext().dispatcher());
-        try {
-            // Block here to wait for termination
-            Await.result(stopFuture, Constants.STOP_FUTURE_TIMEOUT_DURATION);
-        } catch (Exception e) { // Timeout
-            Logger.error("Timeout when stopping actors. ", "Monitor");
+        for (ActorRef ps : parameterServers) {
+            ps.tell(new PSActor.Stop(), self());
         }
+//        LinkedList<Future<Boolean>> stopFutures = new LinkedList<Future<Boolean>>();
+//        Future<Iterable<Boolean>> stopFuture;
+//        for (ActorRef actor : actors)
+//            stopFutures.add(Patterns.gracefulStop(actor, Constants.STOP_FUTURE_TIMEOUT_DURATION));
+//        stopFuture = sequence(stopFutures, getContext().dispatcher());
+//        try {
+//            // Block here to wait for termination
+//            Await.result(stopFuture, Constants.STOP_FUTURE_TIMEOUT_DURATION);
+//        } catch (Exception e) { // Timeout
+//            Logger.error("Timeout when stopping actors. ", "Monitor");
+//        }
     }
 
     private void log(String msg) {

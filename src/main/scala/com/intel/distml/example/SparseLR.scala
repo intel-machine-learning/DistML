@@ -7,6 +7,7 @@ import java.util.Scanner
 import com.intel.distml.api.{Session, Model}
 import com.intel.distml.platform.DistML
 import com.intel.distml.util.scala.DoubleArrayWithIntKey
+import com.intel.distml.util.store.DoubleArrayStore
 import com.intel.distml.util.{DoubleArray, KeyList}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
@@ -131,10 +132,10 @@ object SparseLR {
       registerMatrix("weights", new DoubleArrayWithIntKey(p.dim + 1))
     }
 
-    val dm = DistML.distribute(sc, m, p.psCount, write)
+    val dm = DistML.distribute(sc, m, p.psCount, DistML.defaultF)
     val monitorPath = dm.monitorPath
 
-    for (iter <- 0 to p.maxIterations) {
+    for (iter <- 0 to p.maxIterations - 1) {
       println("============ Iteration: " + iter + " ==============")
 
       val t = samples.mapPartitionsWithIndex((index, it) => {
@@ -211,9 +212,31 @@ object SparseLR {
       println("Total Cost: " + totalCost)
     }
 
+    dm.save("/models/sparselr/cancer")
+    dm.load("/models/sparselr/cancer")
+
     dm.recycle()
 
-    sc.stop();
+    val allWeights = dm.params().flatMap( it => {
+      val m = it.next
+      val store = m._3.asInstanceOf[DoubleArrayStore]
+      val weights = store.iter()
+
+      val result = new util.LinkedList[(Int, Double)]()
+      while (weights.hasNext) {
+        weights.next()
+        result.add((weights.key().toInt, weights.value()))
+      }
+
+      result.iterator
+    }).collect()
+    allWeights.map(showWeight)
+
+    sc.stop()
+  }
+
+  def showWeight(w : (Int, Double)): Unit = {
+    println("w[" + w._1 + "] = " + w._2)
   }
 
   def show(samples : Array[(util.HashMap[Long, Double], Int)]): Unit = {

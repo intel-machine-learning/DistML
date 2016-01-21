@@ -2,6 +2,9 @@ package com.intel.distml.util.store;
 
 import com.intel.distml.util.*;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -34,6 +37,20 @@ public class IntArrayStore extends DataStore {
         }
 
         throw new RuntimeException("Only KeyRange or KeyHash is allowed in server storage");
+    }
+
+    @Override
+    public void writeAll(DataOutputStream os) throws IOException {
+        for (int i = 0; i < localData.length; i++) {
+            os.writeInt(localData[i]);
+        }
+    }
+
+    @Override
+    public void readAll(DataInputStream is) throws IOException {
+        for (int i = 0; i < localData.length; i++) {
+            localData[i] = is.readInt();
+        }
     }
 
     @Override

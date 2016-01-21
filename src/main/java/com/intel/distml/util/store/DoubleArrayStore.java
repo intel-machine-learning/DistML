@@ -2,6 +2,9 @@ package com.intel.distml.util.store;
 
 import com.intel.distml.util.*;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -48,6 +51,21 @@ public class DoubleArrayStore extends DataStore {
     }
 
     @Override
+    public void writeAll(DataOutputStream os) throws IOException {
+        System.out.println("saving to: " + localData.length);
+        for (int i = 0; i < localData.length; i++) {
+            os.writeDouble(localData[i]);
+        }
+    }
+
+    @Override
+    public void readAll(DataInputStream is) throws IOException {
+        for (int i = 0; i < localData.length; i++) {
+            localData[i] = is.readDouble();
+        }
+    }
+
+    @Override
     public byte[] handleFetch(DataDesc format, KeyCollection rows) {
 
         KeyCollection keys = localRows.intersect(rows);
@@ -88,7 +106,7 @@ public class DoubleArrayStore extends DataStore {
         return new Iter();
     }
 
-    private class Iter {
+    public class Iter {
 
         int p;
 
@@ -97,7 +115,7 @@ public class DoubleArrayStore extends DataStore {
         }
 
         public boolean hasNext() {
-            return p <= localData.length;
+            return p < localData.length - 1;
         }
 
         public long key() {
@@ -110,7 +128,7 @@ public class DoubleArrayStore extends DataStore {
 
         public boolean next() {
             p++;
-            return p <= localData.length;
+            return p < localData.length;
         }
     }
 

@@ -2,6 +2,9 @@ package com.intel.distml.util.store;
 
 import com.intel.distml.util.*;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -24,6 +27,28 @@ public class IntMatrixStore extends DataStore {
             for (int j = 0; j < cols; j++)
                 localData[i][j] = 0;
 
+    }
+
+    @Override
+    public void writeAll(DataOutputStream os) throws IOException {
+        int rowSize = (int) localRows.size();
+
+        for (int i = 0; i < localData.length; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                os.writeInt(localData[i][j]);
+            }
+        }
+    }
+
+    @Override
+    public void readAll(DataInputStream is) throws IOException {
+        int rowSize = (int) localRows.size();
+
+        for (int i = 0; i < localData.length; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                localData[i][j] = is.readInt();
+            }
+        }
     }
 
     @Override

@@ -156,7 +156,6 @@ public class DataBusProtocol {
             byte[] buf = new byte[len];
             in.readFully(buf);
             matrixName = new String(buf);
-            System.out.println("matrixName: " + matrixName);
             DataDesc format = model.getMatrix(matrixName).getFormat();
             rows = KeyCollection.readKeyCollection(in, format);
             cols = KeyCollection.readKeyCollection(in, format);
