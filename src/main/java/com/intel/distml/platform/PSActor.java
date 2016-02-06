@@ -7,6 +7,8 @@ import com.intel.distml.api.Model;
 
 import akka.actor.UntypedActor;
 import com.intel.distml.util.*;
+import com.intel.distml.util.scala.FloatMatrix;
+import com.intel.distml.util.store.FloatMatrixStoreAdaGrad;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -24,6 +26,8 @@ public class PSActor extends UntypedActor {
     public static final int OP_SAVE = 1;
     public static final int OP_ZERO = 2;
     public static final int OP_RAND = 3;
+    public static final int OP_SET  = 4;
+    public static final int OP_SET_ALPHA  = 5;
 
     public static class RegisterRequest implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -42,9 +46,16 @@ public class PSActor extends UntypedActor {
 
         int op;
         String path;
+        String value;
         public ModelSetup(int op, String path) {
             this.op = op;
             this.path = path;
+            this.value = null;
+        }
+        public ModelSetup(int op, String path, String value) {
+            this.op = op;
+            this.path = path;
+            this.value = value;
         }
     }
 
@@ -104,7 +115,25 @@ public class PSActor extends UntypedActor {
                 case OP_SAVE:
                     save(path);
                     break;
+                case OP_RAND:
+                    DataStore store = stores.get(path);
+                    store.rand();
+                    break;
+                case OP_ZERO:
+                    store = stores.get(path);
+                    store.zero();
+                    break;
+                case OP_SET:
+                    store = stores.get(path);
+                    store.set(req.value);
+                    break;
             }
+            monitor.tell(new ModelSetupDone(), getSelf());
+        }
+        else if (msg instanceof MonitorActor.SetAlpha) {
+            MonitorActor.SetAlpha req = (MonitorActor.SetAlpha) msg;
+            FloatMatrixStoreAdaGrad store = (FloatMatrixStoreAdaGrad) stores.get(((MonitorActor.SetAlpha) msg).matrixName);
+            store.setAlpha(req.initialAlpha, req.minAlpha, req.factor);
             monitor.tell(new ModelSetupDone(), getSelf());
         }
         else if (msg instanceof Stop) {

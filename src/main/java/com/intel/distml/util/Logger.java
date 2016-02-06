@@ -19,7 +19,7 @@ public class Logger {
 
     private static SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss.SSS");
 
-    public static void Log(Type logType, String module, String msg) {
+    public static void Log(Type logType, String msg, String module) {
         String typeStr = logType.toString();
         System.out.println("==== [" + typeStr + "] [" + DATE_FORMAT.format(new Date()) + "] " +
                 "[" + module + "] " + msg);

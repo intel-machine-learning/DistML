@@ -24,6 +24,15 @@ public class WorkerActor extends UntypedActor {
     public static final int CMD_DISCONNECT = 1;
     public static final int CMD_STOP       = 2;
 
+    public static class Progress implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        final public int sampleCount;
+        public Progress(int sampleCount) {
+            this.sampleCount = sampleCount;
+        }
+    }
+
     public static class Command implements Serializable {
         private static final long serialVersionUID = 1L;
 
@@ -49,19 +58,8 @@ public class WorkerActor extends UntypedActor {
 
     String[] psAddrs;
     WorkerAgent agent;
-//    DataBusImpl dataBus;
-//    ActorRef[] connections;
     int workerIndex;
 
-	/*
-	 * Dynamic State
-	 */
-	static enum State {
-		CREATED,
-        READY
-	}
-
-    State currentState = State.CREATED;
     int dataBusInitCounter = 0;
 
 	public WorkerActor(final Session de, Model model, String monitorPath, int workerIndex) {
@@ -72,8 +70,6 @@ public class WorkerActor extends UntypedActor {
 
         this.monitor.tell(new RegisterRequest(this.workerIndex), getSelf());
         log("Worker register to monitor: " + monitorPath);
-
-        currentState = State.CREATED;
 	}
 
 	public static <ST> Props props(final Session de,final Model model, final String monitorPath, final int index) {
@@ -87,16 +83,17 @@ public class WorkerActor extends UntypedActor {
 
 	@Override
 	public void onReceive(Object msg) {
-        log("onReceive: " + msg + ", " + currentState);
+        log("onReceive: " + msg);
 
-        if (currentState == State.CREATED) {
-            if (msg instanceof MonitorActor.RegisterResponse) {
-                MonitorActor.RegisterResponse res = (MonitorActor.RegisterResponse) msg;
-                this.psAddrs = res.psAddrs;
-                psCount = psAddrs.length;
+        if (msg instanceof MonitorActor.RegisterResponse) {
+            MonitorActor.RegisterResponse res = (MonitorActor.RegisterResponse) msg;
+            this.psAddrs = res.psAddrs;
+            psCount = psAddrs.length;
 
-                de.dataBus = new WorkerAgent(model, psAddrs);
-            }
+            de.dataBus = new WorkerAgent(model, psAddrs);
+        }
+        else if (msg instanceof Progress) {
+            this.monitor.tell(msg, getSelf());
         }
         else unhandled(msg);
 	}

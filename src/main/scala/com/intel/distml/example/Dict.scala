@@ -35,6 +35,11 @@ class Dict extends Serializable {
     return id2word.contains(id)
   }
 
+  def put(word : String, id : Int): Unit = {
+    word2id += (word -> id)
+    id2word += (id -> word)
+  }
+
   /**
    * add a word into this dictionary
    * return the corresponding id

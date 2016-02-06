@@ -149,6 +149,7 @@ object LightLDA {
     println("Vocaulary: " + dic.getSize)
     println("Docs: " + statistics._1)
     println("Tokens: " + statistics._2)
+    println("Topics: " + p.k)
     println("=============== Corpus Info End   ================")
 
     val dm = DistML.distribute(sc, m, p.psCount);

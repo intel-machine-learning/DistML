@@ -6,26 +6,60 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Random;
 
 /**
- * Created by jimmy on 16-1-4.
+ * Created by yunlong on 1/3/16.
  */
-public class DoubleMatrixStore extends DataStore {
-    public static final int VALUE_SIZE = 8;
+public class FloatMatrixStore extends DataStore {
+    public static final int VALUE_SIZE = 4;
 
     transient KeyCollection localRows;
-    transient double[][] localData;
+    transient float[][] localData;
 
     public void init(KeyCollection keys, int cols) {
         this.localRows = keys;
-        localData = new double[(int)keys.size()][cols];
+        localData = new float[(int)keys.size()][cols];
 
-        Runtime r = Runtime.getRuntime();
-        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + keys.size() * cols);
         for (int i = 0; i < keys.size(); i++)
             for (int j = 0; j < cols; j++)
-                localData[i][j] = 0.0;
+                localData[i][j] = 0.0f;
+    }
 
+    public void rand() {
+        System.out.println("init with random values");
+
+        int rows = (int) localRows.size();
+        int cols = localData[0].length;
+
+        Random r = new Random();
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                int a = r.nextInt(100);
+                localData[i][j] = (a / 100.0f - 0.5f) / cols;
+            }
+        }
+    }
+
+    public void set(String value) {
+        setValue(Float.parseFloat(value));
+    }
+
+    public void zero(String value) {
+        setValue(0f);
+    }
+
+    private void setValue(float v) {
+        System.out.println("init with value: " + v);
+
+        int rows = (int) localRows.size();
+        int cols = localData[0].length;
+
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                localData[i][j] = v;
+            }
+        }
     }
 
     @Override
@@ -45,7 +79,7 @@ public class DoubleMatrixStore extends DataStore {
 
         for (int i = 0; i < localData.length; i++) {
             for (int j = 0; j < rowSize; j++) {
-                localData[i][j] = is.readDouble();
+                localData[i][j] = is.readFloat();
             }
         }
     }
@@ -53,19 +87,21 @@ public class DoubleMatrixStore extends DataStore {
     @Override
     public byte[] handleFetch(DataDesc format, KeyCollection rows) {
 
+        System.out.println("handle fetch request: " + rows);
         KeyCollection keys = localRows.intersect(rows);
         byte[] buf;
         if (format.denseColumn) {
             int keySpace = (int) (format.keySize * keys.size());
             int valueSpace = (int) (VALUE_SIZE * keys.size() * localData[0].length);
             buf = new byte[keySpace + valueSpace];
+            System.out.println("buf size: " + buf.length);
         }
         else {
             int nzcount = 0;
             Iterator<Long> it = keys.iterator();
             while (it.hasNext()) {
                 long k = it.next();
-                double[] values = localData[indexOf(k)];
+                float[] values = localData[indexOf(k)];
                 for (int i = 0; i < values.length; i++) {
                     if (values[i] != 0.0) {
                         nzcount++;
@@ -83,7 +119,7 @@ public class DoubleMatrixStore extends DataStore {
             format.writeKey((Number)k, buf, offset);
             offset += format.keySize;
 
-            double[] values = localData[indexOf(k)];
+            float[] values = localData[indexOf(k)];
             if (format.denseColumn) {
                 for (int i = 0; i < values.length; i++) {
                     format.writeValue(values[i], buf, offset);
@@ -124,6 +160,18 @@ public class DoubleMatrixStore extends DataStore {
         throw new RuntimeException("Only KeyRange or KeyHash is allowed in server storage");
     }
 
+    public long keyOf(int index) {
+        if (localRows instanceof KeyRange) {
+            return ((KeyRange)localRows).firstKey + index;
+        }
+        else if (localRows instanceof KeyHash) {
+            KeyHash hash = (KeyHash) localRows;
+            return hash.minKey + index * hash.hashQuato;
+        }
+
+        throw new RuntimeException("Only KeyRange or KeyHash is allowed in server storage");
+    }
+
     public void handlePush(DataDesc format, byte[] data) {
 
         int offset = 0;
@@ -138,11 +186,11 @@ public class DoubleMatrixStore extends DataStore {
         assert(localRows.contains(key));
 
         int index = indexOf(key);
-        double[] row = localData[index];
+        float[] row = localData[index];
         int offset = start;
         if (format.denseColumn) {
             for (int i = 0; i < row.length; i++) {
-                double update = format.readDouble(data, offset);
+                float update = format.readFloat(data, offset);
                 row[i] += update;
                 offset += VALUE_SIZE;
             }
@@ -155,12 +203,43 @@ public class DoubleMatrixStore extends DataStore {
                 offset += 4;
                 assert(col < row.length);
 
-                double update = format.readDouble(data, offset);
+                float update = format.readFloat(data, offset);
                 row[col] += update;
                 offset += VALUE_SIZE;
             }
         }
 
         return offset;
+    }
+
+
+    public Iter iter() {
+        return new Iter();
+    }
+
+    public class Iter {
+
+        int p;
+
+        public Iter() {
+            p = -1;
+        }
+
+        public boolean hasNext() {
+            return p < localData.length - 1;
+        }
+
+        public long key() {
+            return keyOf(p);
+        }
+
+        public float[] value() {
+            return localData[p];
+        }
+
+        public boolean next() {
+            p++;
+            return p < localData.length;
+        }
     }
 }

@@ -24,6 +24,7 @@ public final class DataDesc implements Serializable {
 
     public boolean denseRow;
     public boolean denseColumn;
+    public boolean adaGrad;
 
     public int keySize;
     public int valueSize;
@@ -36,11 +37,15 @@ public final class DataDesc implements Serializable {
     }
 
     public DataDesc(int dataType, int keyType, int valueType, boolean denseRow, boolean denseColumn) {
+        this(dataType, keyType, valueType, denseRow, denseColumn, false);
+    }
+    public DataDesc(int dataType, int keyType, int valueType, boolean denseRow, boolean denseColumn, boolean adaGrade) {
         this.dataType = dataType;
         this.valueType = valueType;
         this.keyType = keyType;
         this.denseRow = denseRow;
         this.denseColumn = denseColumn;
+        this.adaGrad = adaGrade;
 
         this.keySize = (keyType == KEY_TYPE_INT)? 4 : 8;
         this.valueSize = ((valueType == ELEMENT_TYPE_INT) || (valueType == ELEMENT_TYPE_FLOAT))? 4 : 8;
@@ -51,7 +56,7 @@ public final class DataDesc implements Serializable {
     }
 
     public int sizeAsBytes() {
-        return 20;  // keySize and valueSize are calculated in fly
+        return 24;  // keySize and valueSize are calculated in fly
     }
 
     public void write(DataOutputStream out) throws IOException {
@@ -60,6 +65,7 @@ public final class DataDesc implements Serializable {
         out.writeInt(valueType);
         out.writeInt(denseRow ? 1 : 0);
         out.writeInt(denseColumn ? 1 : 0);
+        out.writeInt(adaGrad ? 1 : 0);
     }
 
     public void read(DataInputStream in) throws IOException {
@@ -68,6 +74,7 @@ public final class DataDesc implements Serializable {
         valueType = in.readInt();
         denseRow = in.readInt() == 1;
         denseColumn = in.readInt() == 1;
+        adaGrad = in.readInt() == 1;
 
         this.keySize = (keyType == KEY_TYPE_INT)? 4 : 8;
         this.valueSize = ((valueType == ELEMENT_TYPE_INT) || (valueType == ELEMENT_TYPE_FLOAT))? 4 : 8;
@@ -226,6 +233,7 @@ public final class DataDesc implements Serializable {
         int value = Float.floatToIntBits(v);
         return write(value, data, offset);
     }
+
     public int write(int value, byte[] data, int offset) {
         data[offset] = (byte) (value & 0xff);
         data[offset+1] = (byte) ((value >> 8) & 0xff);

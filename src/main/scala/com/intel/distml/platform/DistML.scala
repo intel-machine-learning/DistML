@@ -4,16 +4,14 @@ import java.net.URI
 
 import akka.actor._
 import com.intel.distml.api.Model
-import com.intel.distml.platform.MonitorActor.{SaveModel, LoadModel, TrainingDone}
+import com.intel.distml.platform.MonitorActor._
 import com.intel.distml.util.DataStore
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkContext
 
-import org.apache.hadoop.conf._
-import org.apache.hadoop.fs._
-import org.apache.hadoop.fs.Path._
 import org.apache.spark.rdd.RDD
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.collection.JavaConversions._
 
@@ -35,6 +33,15 @@ psDriverThread : ParamServerDriver[T]
     psDriverThread.finalResult
   }
 
+  def iterationDone(): Unit = {
+    val req = new IterationDone()
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
+  }
+
   def save(path : String): Unit = {
     val req = new SaveModel(path)
 
@@ -54,12 +61,40 @@ psDriverThread : ParamServerDriver[T]
     }
   }
 
-  def zero(): Unit = {
-    throw new Exception("Will be implemented soon")
+  def zero(matrixName : String): Unit = {
+    val req = new ZeroModel(matrixName)
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
   }
 
-  def random(): Unit = {
-    throw new Exception("Will be implemented soon")
+  def random(matrixName : String): Unit = {
+    val req = new RandModel(matrixName)
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
+  }
+
+  def init(matrixName : String, value : String): Unit = {
+    val req = new SetModel(matrixName, value)
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
+  }
+
+  def setAlpha(matrixName : String, initialAlpha : Float, minAlpha : Float, factor : Float): Unit = {
+    val req = new SetAlpha(matrixName, initialAlpha, minAlpha, factor)
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
   }
 
   def recycle(): Unit = {

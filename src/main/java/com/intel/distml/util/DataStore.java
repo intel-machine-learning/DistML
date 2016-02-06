@@ -2,10 +2,7 @@ package com.intel.distml.util;
 
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
-import com.intel.distml.util.store.DoubleArrayStore;
-import com.intel.distml.util.store.DoubleMatrixStore;
-import com.intel.distml.util.store.IntArrayStore;
-import com.intel.distml.util.store.IntMatrixStore;
+import com.intel.distml.util.store.*;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -19,6 +16,12 @@ import java.util.Map;
  */
 public abstract class DataStore {
 
+    public void rand() {};
+
+    public void zero() {};
+
+    public void set(String value) {};
+
     public abstract byte[] handleFetch(DataDesc format, KeyCollection rows);
 
     public abstract void handlePush(DataDesc format, byte[] data);
@@ -30,8 +33,6 @@ public abstract class DataStore {
     public static HashMap<String, DataStore> createStores(Model model, int serverIndex) {
         HashMap<String, DataStore> stores = new HashMap<String, DataStore>();
         for (Map.Entry<String, DMatrix> m : model.dataMap.entrySet()) {
-            if (m.getKey().equals("SAMPLE")) continue;
-
             stores.put(m.getKey(), DataStore.createStore(serverIndex, m.getValue()));
         }
 
@@ -39,15 +40,19 @@ public abstract class DataStore {
     }
 
     public static DataStore createStore(int serverIndex, DMatrix matrix) {
+        System.out.println("create store: " + serverIndex + ", cols: " + matrix.getColKeys().size());
         DataDesc format = matrix.getFormat();
         if (format.dataType == DataDesc.DATA_TYPE_ARRAY) {
             if (format.valueType == DataDesc.ELEMENT_TYPE_INT) {
                 IntArrayStore store = new IntArrayStore();
                 store.init(matrix.partitions[serverIndex]);
                 return store;
-            }
-            else if (format.valueType == DataDesc.ELEMENT_TYPE_DOUBLE) {
+            } else if (format.valueType == DataDesc.ELEMENT_TYPE_DOUBLE) {
                 DoubleArrayStore store = new DoubleArrayStore();
+                store.init(matrix.partitions[serverIndex]);
+                return store;
+            } else if (format.valueType == DataDesc.ELEMENT_TYPE_FLOAT) {
+                FloatArrayStore store = new FloatArrayStore();
                 store.init(matrix.partitions[serverIndex]);
                 return store;
             }
@@ -61,6 +66,17 @@ public abstract class DataStore {
                 DoubleMatrixStore store = new DoubleMatrixStore();
                 store.init(matrix.partitions[serverIndex], (int) matrix.getColKeys().size());
                 return store;
+            } else if (format.valueType == DataDesc.ELEMENT_TYPE_FLOAT) {
+                if (format.adaGrad) {
+                    FloatMatrixStoreAdaGrad store = new FloatMatrixStoreAdaGrad();
+                    store.init(matrix.partitions[serverIndex], (int) matrix.getColKeys().size());
+                    return store;
+                }
+                else {
+                    FloatMatrixStore store = new FloatMatrixStore();
+                    store.init(matrix.partitions[serverIndex], (int) matrix.getColKeys().size());
+                    return store;
+                }
             }
         }
 

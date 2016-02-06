@@ -11,6 +11,7 @@ import com.intel.distml.util.*;
 
 public class MonitorActor extends UntypedActor {
 
+
     public static class DriverRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
@@ -21,6 +22,18 @@ public class MonitorActor extends UntypedActor {
 
         public String toString() {
             return "DriverRequest";
+        }
+    }
+
+    public static class IterationDone extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        public IterationDone() {
+
+        }
+
+        public String toString() {
+            return "IterationDone";
         }
     }
 
@@ -47,6 +60,66 @@ public class MonitorActor extends UntypedActor {
 
         public String toString() {
             return "SaveModel";
+        }
+    }
+
+    public static class ZeroModel extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String matrixName;
+        public ZeroModel(String matrixName) {
+            this.matrixName = matrixName;
+        }
+
+        public String toString() {
+            return "ZeroModel";
+        }
+    }
+
+    public static class RandModel extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String matrixName;
+        public RandModel(String matrixName) {
+            this.matrixName = matrixName;
+        }
+
+        public String toString() {
+            return "RandModel";
+        }
+    }
+
+    public static class SetModel extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String matrixName;
+        String value;
+        public SetModel(String matrixName, String value) {
+            this.matrixName = matrixName;
+            this.value = value;
+        }
+
+        public String toString() {
+            return "SetModel";
+        }
+    }
+
+    public static class SetAlpha extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        String matrixName;
+        float initialAlpha;
+        float minAlpha;
+        float factor;
+        public SetAlpha(String matrixName, float initialAlpha, float minAlpha, float factor) {
+            this.matrixName = matrixName;
+            this.initialAlpha = initialAlpha;
+            this.minAlpha = minAlpha;
+            this.factor = factor;
+        }
+
+        public String toString() {
+            return "SetAlpha";
         }
     }
 
@@ -82,12 +155,11 @@ public class MonitorActor extends UntypedActor {
 
     private ActorRef[] parameterServers;
     private String[] psAddrs;
-    private ActorRef[] serverDataBuses;
 
     private LinkedList<ActorRef> workers;
 
     private Model model;
-    private ActorRef workerStarter;
+    private int progress;
 
     private DriverRequest pendingRequest;
     private int psCounter = 0;
@@ -103,6 +175,7 @@ public class MonitorActor extends UntypedActor {
 
         pendingRequest = null;
         psCounter = 0;
+        progress = 0;
 
         log("Monitor created, psCount:" + psCount);
     }
@@ -148,6 +221,34 @@ public class MonitorActor extends UntypedActor {
                 parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_SAVE, path), getSelf());
             }
         }
+        else if (msg instanceof RandModel) {
+            pendingRequest = (DriverRequest) msg;
+            String matrixName = ((RandModel) msg).matrixName;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_RAND, matrixName), getSelf());
+            }
+        }
+        else if (msg instanceof SetModel) {
+            pendingRequest = (DriverRequest) msg;
+            String matrixName = ((SetModel) msg).matrixName;
+            String value = ((SetModel) msg).value;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName, value), getSelf());
+            }
+        }
+        else if (msg instanceof ZeroModel) {
+            pendingRequest = (DriverRequest) msg;
+            String matrixName = ((ZeroModel) msg).matrixName;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName), getSelf());
+            }
+        }
+        else if (msg instanceof SetAlpha) {
+            pendingRequest = (DriverRequest) msg;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(msg, getSelf());
+            }
+        }
         else if (msg instanceof PSActor.ModelSetupDone) {
             psCounter++;
             if (psCounter == psCount) {
@@ -155,11 +256,19 @@ public class MonitorActor extends UntypedActor {
                 psCounter = 0;
             }
         }
+        else if (msg instanceof IterationDone) {
+            ((IterationDone) msg).done = true;
+            progress = 0;
+        }
         else if (msg instanceof WorkerActor.RegisterRequest) {
             WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
 
             workers.add(getSender());
             getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
+        }
+        else if (msg instanceof WorkerActor.Progress) {
+            progress += ((WorkerActor.Progress) msg).sampleCount;
+            log("progress: " + progress);
         } else if (msg instanceof TrainingDone) {
             stopAll();
         }

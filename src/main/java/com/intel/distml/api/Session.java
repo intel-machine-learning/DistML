@@ -47,6 +47,10 @@ public class Session {
         }
     }
 
+    public void progress(int sampleCount) {
+        worker.tell(new WorkerActor.Progress(sampleCount), null);
+    }
+
     public void disconnect() {
         dataBus.disconnect();
     }

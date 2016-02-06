@@ -23,6 +23,8 @@ public class IntMatrixStore extends DataStore {
         this.localRows = keys;
         localData = new int[(int)keys.size()][cols];
 
+        Runtime r = Runtime.getRuntime();
+        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + keys.size() * cols);
         for (int i = 0; i < keys.size(); i++)
             for (int j = 0; j < cols; j++)
                 localData[i][j] = 0;
