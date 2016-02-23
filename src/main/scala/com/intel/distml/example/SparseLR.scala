@@ -123,7 +123,7 @@ object SparseLR {
     val conf = new SparkConf().setAppName("SparseLR")
     val sc = new SparkContext(conf)
 
-    val samples = sc.textFile(p.input).map(parseCancerData)
+    val samples = sc.textFile(p.input).map(parseBlanc)
 
 //    show(samples.collect())
     samples.repartition(1)
