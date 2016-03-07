@@ -298,8 +298,6 @@ object Word2Vec {
 
       val t = data.mapPartitionsWithIndex((index, it) => {
 
-        System.loadLibrary("floatops")
-
         println("--- connecting to PS ---")
         val session = new Session(m, monitorPath, index)
         val syn0d = m.getMatrix("syn0").asInstanceOf[FloatMatrixWithIntKey]
