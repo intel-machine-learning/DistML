@@ -1,28 +1,18 @@
 
-Before running samples, remember to change configurations in "conf.sh" according to your environment.
 
+Run example of logistic regression 
+====================================
+$ git clone https://github.com/intel-machine-learning/DistML.git
+$ cd DistML
+$ mvn package
+$ cd data
+$ wget http://komarix.org/ac/ds/Blanc__Mel.txt.bz2
+$ bunzip2 Blanc__Mel.txt.bz2
+$ <copy Blanc__Mel.txt to hdfs> 
+ 
+$ cd ..
+$ export DISTML_HOME=`pwd`
 
-DistML provides some samples for evaulation.
+$ cd ${SPARK}/bin
+$ ./spark-submit --class com.intel.distml.example.regression.MelBlanc --master yarn://dl-s1:8088 ${DISTML_HOME}/target/distml-0.2.jar --psCount 1 --maxIterations 10 --dim 1000000 --eta 0.00001 /data/lr/Blanc-Mel.txt /models/Blanc
 
-1. Word2Vec
-	# prepare a line separated dataset
-	# put the dataset to HDFS
-	# modify EngWords.scala to use that dataset
-	# run "./run.sh word2vec"
-
-2. MNIST
-	# run "./mnist_prepare.sh" under data directory
-	# put "mnist_train.txt" to HDFS
-	# modify MNIST.scala to use "mnist_train.txt"
-	# run "./run.sh mnist"
-
-3. SparseLR
-	# prepare dataset
-	# in spark application, create RDD[LRSample] from the dataset
-	# use following code to train SparseLR model with rdd:
- 	    val model = new SparseLRModel(20000000000L)
-	    val config = new TrainingContext().psCount(4).iteration(1).miniBatchSize(10000)
-	    TrainingHelper.startTraining(rdd.sparkContext, model, rdd.repartition(12), config, new BigModelWriter(10));
-	
-	# use following line to get the weights:
-	    val weights = model.getMatrix(Model.MATRIX_PARAM).localCache.asInstanceOf[SparseWeights]; 

@@ -19,9 +19,18 @@ import scala.collection.JavaConversions._
  * Created by yunlong on 12/8/15.
  */
 
+object DistMLState extends Enumeration {
+  type DistMLState = Value
+  val READY, RECYCLED = Value
+
+  def isReady(state : DistMLState) : Boolean = {
+    state == READY
+  }
+}
+
 class DistML[T: ClassTag] (
-model : Model,
-psCount : Int,
+val model : Model,
+val psCount : Int,
 system: ActorSystem,
 val monitorPath : String,
 monitorActor : ActorRef,
@@ -29,11 +38,29 @@ psDriverThread : ParamServerDriver[T]
 )
 {
 
+  var state = DistMLState.READY
+
   def params() : RDD[T] = {
+    assertRecycled()
+
     psDriverThread.finalResult
   }
 
+  def assertReady(): Unit = {
+    if (!DistMLState.isReady(state)) {
+      throw new IllegalStateException("parameter servers are not running.")
+    }
+  }
+
+  def assertRecycled(): Unit = {
+    if (DistMLState.isReady(state)) {
+      throw new IllegalStateException("parameter servers are still running.")
+    }
+  }
+
   def iterationDone(): Unit = {
+    assertReady()
+
     val req = new IterationDone()
 
     monitorActor.tell(req, null)
@@ -43,6 +70,8 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def save(path : String): Unit = {
+    assertReady()
+
     val req = new SaveModel(path)
 
     monitorActor.tell(req, null)
@@ -52,6 +81,7 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def load(path : String): Unit = {
+    assertReady()
 
     val req = new LoadModel(path)
 
@@ -62,6 +92,8 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def zero(matrixName : String): Unit = {
+    assertReady()
+
     val req = new ZeroModel(matrixName)
 
     monitorActor.tell(req, null)
@@ -71,6 +103,8 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def random(matrixName : String): Unit = {
+    assertReady()
+
     val req = new RandModel(matrixName)
 
     monitorActor.tell(req, null)
@@ -80,6 +114,8 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def init(matrixName : String, value : String): Unit = {
+    assertReady()
+
     val req = new SetModel(matrixName, value)
 
     monitorActor.tell(req, null)
@@ -89,6 +125,8 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def setAlpha(matrixName : String, initialAlpha : Float, minAlpha : Float, factor : Float): Unit = {
+    assertReady()
+
     val req = new SetAlpha(matrixName, initialAlpha, minAlpha, factor)
 
     monitorActor.tell(req, null)
@@ -98,10 +136,14 @@ psDriverThread : ParamServerDriver[T]
   }
 
   def recycle(): Unit = {
+    assertReady()
+
     monitorActor.tell(new TrainingDone(), null)
 
     psDriverThread.join()
     system.awaitTermination()
+
+    state = DistMLState.RECYCLED
   }
 
 }
@@ -112,8 +154,8 @@ object DistML {
     """
       |akka.actor.provider="akka.remote.RemoteActorRefProvider"
       |akka.remote.netty.tcp.port=0
-      |akka.remote.log-remote-lifecycle-events=off
-      |akka.log-dead-letters=off
+      |akka.remote.log-remote-lifecycle-events=on
+      |akka.log-dead-letters=on
       |akka.io.tcp.direct-buffer-size = 2 MB
       |akka.io.tcp.trace-logging=off
       |akka.remote.netty.tcp.maximum-frame-size=4126935
