@@ -18,6 +18,8 @@ object MLR {
                           input: String = null,
                           inputDim: Long = 0,
                           outputDim: Long = 0,
+                          partitions: Int = 1,
+                          psCount: Int = 1,
                           batchSize: Int = 100,
                           maxIterations: Int = 500
                           )
@@ -35,6 +37,12 @@ object MLR {
       opt[Int]("batchSize")
         .text(s"number of samples computed in a round. default: ${mlrParams.batchSize}")
         .action((x, c) => c.copy(batchSize = x))
+      opt[Int]("psCount")
+        .text(s"number of parameter servers. default: ${mlrParams.psCount}")
+        .action((x, c) => c.copy(psCount = x))
+      opt[Int]("partitions")
+        .text(s"number of partitions for training data. default: ${mlrParams.partitions}")
+        .action((x, c) => c.copy(partitions = x))
       opt[Int]("maxIterations")
         .text(s"number of iterations of training. default: ${mlrParams.maxIterations}")
         .action((x, c) => c.copy(maxIterations = x))
@@ -104,11 +112,11 @@ object MLR {
     println("batchSize: " + p.batchSize)
     println("input: " + p.input)
     println("maxIterations: " + p.maxIterations)
+
     val conf = new SparkConf().setAppName("SparkMLR")
-    //conf.setMaster("spark://jimmy-Z97X-UD7-TH:7077")
+
     val sc = new SparkContext(conf)
     val dim = p.outputDim
-    //val samples = sc.textFile(p.input).map(line => parseLinie(line, dim))
     val samples = sc.textFile(p.input).map(line => {
       val items = line.split(" ")
       val labels = new Array[Double](p.outputDim.toInt)
@@ -123,21 +131,23 @@ object MLR {
       }
       labels(items(len-1).toInt) = 1.0
       (data, labels)
-    })
-    samples.repartition(1)
+    }).repartition(p.partitions)
+
     val model = new Model() {
-      //registerMatrix("weights", new DoubleMatrix( p.inputDim, p.outputDim.toInt))
       registerMatrix("weights", new DoubleMatrix(p.inputDim,  p.outputDim.toInt))
     }
-    val dm = DistML.distribute(sc, model, 1)
+    val dm = DistML.distribute(sc, model, p.psCount)
     val mPath = dm.monitorPath
     var cost = 0.0
     var lr = 0.1
 
     for (iter <- 0 to p.maxIterations) {
       val t = samples.mapPartitionsWithIndex((index, it) => {
+
+        println("Worker: tid=" + Thread.currentThread.getId + ", " + index)
         println("--- connecting to PS ---")
         val session = new Session(model, mPath, index)
+
         val weights = model.getMatrix("weights").asInstanceOf[DoubleMatrix]
         val samples = new util.LinkedList[(util.HashMap[Long, Double], Array[Double])]
 
@@ -156,9 +166,7 @@ object MLR {
             }
           }
           val w = weights.fetch(keys, session)
-          println("fetch from server")
 
-          //dumpweights(w, keys)
           val w_old = new util.HashMap[Long, Array[Double]]
           for ((key, value) <- w) {
             var tmp:Array[Double] = new Array[Double](value.length)
@@ -168,7 +176,6 @@ object MLR {
             w_old.put(key, tmp)
           }
 
-          //LR computing
           for ((x, label) <- samples) {
             val p_y_given_x: Array[Double] = new Array[Double](p.outputDim.toInt)
             val dy: Array[Double] = new Array[Double](p.outputDim.toInt)
@@ -178,45 +185,24 @@ object MLR {
               p_y_given_x(i) = 0.0
               for (key <- x.keySet()) {
                   p_y_given_x(i) += (w.get(key))(i) * x.get(key)
-                  //println("w: " + (w.get(key))(i) + " x " + x.get(key)  )
                 }
-                //add bias
             }
-            //softmax
-            println("xxxxxxxxxxxxbefor soft max xxxxxxxxxxxxxxx")
-            for (i <-0 until p_y_given_x.length)
-              print(" " + p_y_given_x(i))
-            println(" ")
 
             softmax(p_y_given_x)
 
-            println("xxxxxxxx after softmax xxxxxxxxxxxxxxxxxxx")
-            for (i <-0 until p_y_given_x.length)
-              print(" " + p_y_given_x(i))
-            println(" ")
-            //gradiant
             for (i <- 0 until p.outputDim.toInt) {
               dy(i) = label(i) - p_y_given_x(i)
               for (key <- x.keySet()) {
                 (w.get(key)) (i.toInt) += lr * dy(i) * x.get(key)
               }
-              println(" ")
-              //todo bias
-              //deal cost
               if (label(i) > 0.0) {
                 cost = cost + label(i) * Math.log(p_y_given_x(i))
-                //println("Cost: " + cost)
-                //println("Label: " + i)
-                println("label is " + i + " py " + p_y_given_x(i))
               }
             }
-              println("push to server")
-            //dumpweights(w, keys)
-
           }
-          println("Before Cost: " + cost)
+
           cost /= samples.size()
-          println("After Cost: " + cost)
+
           // tuning in future
           for (key <- w.keySet()) {
             val grad: Array[java.lang.Double]  = new Array[java.lang.Double](p.outputDim.toInt)
@@ -225,9 +211,12 @@ object MLR {
             }
             w.put(key, grad)
           }
-          //dumpweights(w, w.keySet())
+
           weights.push(w, session)
+
+          //session.progress(samples.size())
         }
+
         println("--- disconnect ---")
         session.disconnect()
 
@@ -235,6 +224,10 @@ object MLR {
         r(0) = cost
         r.iterator
       })
+
+      dm.iterationDone()
+
+
       val totalCost = t.reduce(_+_)
       println("Total Cost: " + totalCost)
     }
@@ -253,8 +246,8 @@ object MLR {
       }
       labels(items(len-1).toInt) = 1.0
       (data, labels)
-    })
-    testRDD.repartition(1)
+    }).repartition(1)
+
     val t1 = testRDD.mapPartitionsWithIndex( (index, it) => {
       val session = new Session(model, mPath, index)
       val weights = model.getMatrix("weights").asInstanceOf[DoubleMatrix]
@@ -286,6 +279,9 @@ object MLR {
           error += 1
         }
       }
+
+      session.disconnect()
+
       val r = new Array[Int](1)
       r(0) = correct
       //r(1) = error
@@ -294,6 +290,7 @@ object MLR {
 
     val correct = t1.reduce(_+_)
     println("Total Correct " + correct)
+
     dm.recycle()
     sc.stop()
   }

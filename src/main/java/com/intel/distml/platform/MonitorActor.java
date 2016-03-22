@@ -249,6 +249,13 @@ public class MonitorActor extends UntypedActor {
                 parameterServers[i].tell(msg, getSelf());
             }
         }
+        else if (msg instanceof IterationDone) {
+            pendingRequest = (DriverRequest) msg;
+            for (int i = 0; i < parameterServers.length; i++) {
+                parameterServers[i].tell(msg, getSelf());
+            }
+            progress = 0;
+        }
         else if (msg instanceof PSActor.ModelSetupDone) {
             psCounter++;
             if (psCounter == psCount) {
@@ -256,17 +263,12 @@ public class MonitorActor extends UntypedActor {
                 psCounter = 0;
             }
         }
-        else if (msg instanceof IterationDone) {
-            ((IterationDone) msg).done = true;
-            progress = 0;
-        }
         else if (msg instanceof WorkerActor.RegisterRequest) {
             WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
 
             workers.add(getSender());
             getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
-        }
-        else if (msg instanceof WorkerActor.Progress) {
+        } else if (msg instanceof WorkerActor.Progress) {
             progress += ((WorkerActor.Progress) msg).sampleCount;
             log("progress: " + progress);
         } else if (msg instanceof TrainingDone) {
@@ -291,17 +293,6 @@ public class MonitorActor extends UntypedActor {
         for (ActorRef ps : parameterServers) {
             ps.tell(new PSActor.Stop(), self());
         }
-//        LinkedList<Future<Boolean>> stopFutures = new LinkedList<Future<Boolean>>();
-//        Future<Iterable<Boolean>> stopFuture;
-//        for (ActorRef actor : actors)
-//            stopFutures.add(Patterns.gracefulStop(actor, Constants.STOP_FUTURE_TIMEOUT_DURATION));
-//        stopFuture = sequence(stopFutures, getContext().dispatcher());
-//        try {
-//            // Block here to wait for termination
-//            Await.result(stopFuture, Constants.STOP_FUTURE_TIMEOUT_DURATION);
-//        } catch (Exception e) { // Timeout
-//            Logger.error("Timeout when stopping actors. ", "Monitor");
-//        }
     }
 
     private void log(String msg) {

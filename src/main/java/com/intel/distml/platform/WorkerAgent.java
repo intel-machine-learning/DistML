@@ -130,7 +130,7 @@ public class WorkerAgent implements DataBus  {
                 s.close();
             }
             catch (IOException e) {
-                e.printStackTrace();
+                //e.printStackTrace();
             }
         }
     }

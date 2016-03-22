@@ -53,7 +53,8 @@ public class Session {
 
     public void disconnect() {
         dataBus.disconnect();
-	workerActorSystem.shutdown();
+        workerActorSystem.stop(worker);
+        workerActorSystem.shutdown();
     }
 
     public void discard() {

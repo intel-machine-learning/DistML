@@ -136,6 +136,10 @@ public class PSActor extends UntypedActor {
             store.setAlpha(req.initialAlpha, req.minAlpha, req.factor);
             monitor.tell(new ModelSetupDone(), getSelf());
         }
+        else if (msg instanceof MonitorActor.IterationDone) {
+            agent.closeClients();
+            monitor.tell(new ModelSetupDone(), getSelf());
+        }
         else if (msg instanceof Stop) {
             agent.disconnect();
             getContext().stop(self());

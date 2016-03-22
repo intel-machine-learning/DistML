@@ -154,8 +154,8 @@ object DistML {
     """
       |akka.actor.provider="akka.remote.RemoteActorRefProvider"
       |akka.remote.netty.tcp.port=0
-      |akka.remote.log-remote-lifecycle-events=on
-      |akka.log-dead-letters=on
+      |akka.remote.log-remote-lifecycle-events=off
+      |akka.log-dead-letters=off
       |akka.io.tcp.direct-buffer-size = 2 MB
       |akka.io.tcp.trace-logging=off
       |akka.remote.netty.tcp.maximum-frame-size=4126935

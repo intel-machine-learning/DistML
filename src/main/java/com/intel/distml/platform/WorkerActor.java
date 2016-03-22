@@ -57,10 +57,8 @@ public class WorkerActor extends UntypedActor {
     Session de;
 
     String[] psAddrs;
-    WorkerAgent agent;
     int workerIndex;
 
-    int dataBusInitCounter = 0;
 
 	public WorkerActor(final Session de, Model model, String monitorPath, int workerIndex) {
         this.monitor = getContext().actorSelection(monitorPath);

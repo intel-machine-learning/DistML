@@ -52,13 +52,25 @@ public class PSAgent extends Thread {
 
         try {
             ss.close();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
 
-            for (FetchService s : clients) {
+        closeClients();
+    }
+
+    public void closeClients() {
+
+        try {
+            while (clients.size() > 0) {
+                FetchService s = clients.removeFirst();
+                s.owner = null;
                 s.socket.close();
             }
         }
         catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
     }
 
@@ -98,28 +110,32 @@ public class PSAgent extends Thread {
     }
 
     public void run() {
+        log("PSAgent: tid=" + Thread.currentThread().getId());
         running = true;
 
         while (running) {
             try {
                 Socket s = ss.accept();
                 log("worker connected: " + s.getInetAddress());
-                FetchService c = new FetchService(s);
+                FetchService c = new FetchService(this, s);
                 clients.add(c);
                 c.start();
             } catch (IOException e) {
-                e.printStackTrace();
+                if (running)
+                    e.printStackTrace();
             }
         }
     }
 
     class FetchService extends Thread {
 
+        PSAgent owner;
         Socket socket;
         DataInputStream is;
         DataOutputStream os;
 
-        public FetchService(Socket socket) {
+        public FetchService(PSAgent owner, Socket socket) {
+            this.owner = owner;
             try {
                 this.socket = socket;
                 this.is = new DataInputStream(socket.getInputStream());
@@ -130,6 +146,7 @@ public class PSAgent extends Thread {
         }
 
         public void run() {
+            log("FetchService: tid=" + Thread.currentThread().getId());
             try {
                 while(true) {
                     log("reading...");
@@ -145,7 +162,8 @@ public class PSAgent extends Thread {
                     res.write(os, model);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                if (owner != null)
+                    e.printStackTrace();
             }
         }
     }

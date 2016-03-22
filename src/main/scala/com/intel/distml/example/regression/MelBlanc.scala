@@ -25,6 +25,7 @@ object MelBlanc {
                              modelPath : String = null,
                              dim: Int = 10000000,
                              eta: Double = 0.0001,
+                             partitions : Int = 1,
                              batchSize: Int = 100,
                              maxIterations: Int = 100
                              )
@@ -56,6 +57,9 @@ object MelBlanc {
       opt[Int]("psCount")
         .text(s"number of parameter servers. default: ${defaultParams.psCount}")
         .action((x, c) => c.copy(psCount = x))
+      opt[Int]("partitions")
+        .text(s"number of partitions for training data. default: ${defaultParams.partitions}")
+        .action((x, c) => c.copy(partitions = x))
       opt[Int]("batchSize")
         .text(s"number of samples computed in a round. default: ${defaultParams.batchSize}")
         .action((x, c) => c.copy(batchSize = x))
@@ -96,7 +100,7 @@ object MelBlanc {
     ratio(0) = 0.9
     ratio(1) = 0.1
     val t = samples.randomSplit(ratio)
-    val trainSet = t(0)
+    val trainSet = t(0).repartition(p.partitions)
     val testSet = t(1)
 
     train(sc, trainSet, p.psCount, p.dim, 1, p.batchSize, p.modelPath)
