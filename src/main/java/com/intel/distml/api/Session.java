@@ -55,11 +55,17 @@ public class Session {
         dataBus.disconnect();
         workerActorSystem.stop(worker);
         workerActorSystem.shutdown();
+        dataBus = null;
     }
 
     public void discard() {
         worker.tell(new WorkerActor.Command(WorkerActor.CMD_DISCONNECT), null);
     }
 
+    @Override
+    public void finalize() {
+        if (dataBus != null)
+            disconnect();
+    }
 
 }

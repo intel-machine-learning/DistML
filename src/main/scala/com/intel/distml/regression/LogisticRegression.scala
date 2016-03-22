@@ -98,7 +98,6 @@ object LogisticRegression {
         println("--- connecting to PS ---")
         val session = new Session(m, monitorPath, index)
         val wd = m.getMatrix("weights").asInstanceOf[DoubleArrayWithIntKey]
-
         val batch = new util.LinkedList[(mutable.HashMap[Int, Double], Int)]
 
         //var progress = 0
@@ -154,6 +153,7 @@ object LogisticRegression {
 
           wd.push(w, session)
         }
+
         println("--- disconnect ---")
         session.disconnect()
 
@@ -232,6 +232,8 @@ object LogisticRegression {
         labels.add(h)
       }
 
+      session.disconnect();
+
       labels.iterator
     })
 
@@ -270,6 +272,8 @@ object LogisticRegression {
         val h = 1.0 / (1.0 + Math.exp(-sum))
         labels.add((h, label.toDouble))
       }
+
+      session.disconnect();
 
       labels.iterator
     })
