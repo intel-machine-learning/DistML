@@ -33,16 +33,7 @@ object LogisticRegression {
   def load(sc: SparkContext, hdfsPath: String): DistML[Iterator[(Int, String, DataStore)]] = {
 
     // read meta
-    val props = new Properties()
-    val conf: Configuration = new Configuration
-    val fs: FileSystem = FileSystem.get(URI.create(hdfsPath), conf)
-
-    val dst: Path = new Path(hdfsPath + "/meta.txt")
-    val in: DataInputStream = fs.open(dst)
-
-    props.load(in)
-    in.close
-    fs.close()
+    val props = DistML.loadMeta(hdfsPath)
 
     val dim = Integer.parseInt(props.get("dim").asInstanceOf[String])
     val psCount = Integer.parseInt(props.get("psCount").asInstanceOf[String])
@@ -71,17 +62,7 @@ object LogisticRegression {
     props.put("dim", "" + w.getRowKeys.size())
     props.put("psCount", "" + dm.psCount)
 
-    val conf: Configuration = new Configuration
-    val fs: FileSystem = FileSystem.get(URI.create(hdfsPath), conf)
-
-    val dst: Path = new Path(hdfsPath + "/meta.txt")
-    val out: DataOutputStream = fs.create(dst)
-
-    props.store(out, comments)
-
-    out.flush
-    out.close
-    fs.close()
+    DistML.saveMeta(hdfsPath, props, comments)
   }
 
   def train(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],

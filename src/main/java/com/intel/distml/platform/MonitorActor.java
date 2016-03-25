@@ -191,7 +191,7 @@ public class MonitorActor extends UntypedActor {
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        log("onReceive: " + msg + ", "  + getSender() );
+        debug("onReceive: " + msg + ", "  + getSender() );
 
         if (msg instanceof PSActor.RegisterRequest) {
             PSActor.RegisterRequest req = (PSActor.RegisterRequest) msg;
@@ -293,6 +293,10 @@ public class MonitorActor extends UntypedActor {
         for (ActorRef ps : parameterServers) {
             ps.tell(new PSActor.Stop(), self());
         }
+    }
+
+    private void debug(String msg) {
+        Logger.debug(msg, "Monitor");
     }
 
     private void log(String msg) {

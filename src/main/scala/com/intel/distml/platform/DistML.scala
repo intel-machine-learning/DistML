@@ -1,12 +1,17 @@
 package com.intel.distml.platform
 
+import java.io.{DataInputStream, DataOutputStream}
 import java.net.URI
+import java.util.Properties
 
 import akka.actor._
 import com.intel.distml.api.Model
 import com.intel.distml.platform.MonitorActor._
 import com.intel.distml.util.DataStore
+import com.intel.distml.util.scala.DoubleArrayWithIntKey
 import com.typesafe.config.ConfigFactory
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{Path, FileSystem}
 import org.apache.spark.SparkContext
 
 import org.apache.spark.rdd.RDD
@@ -213,6 +218,36 @@ object DistML {
     println("=========== model distributed ==============");
 
     new DistML[T](model, psCount, monitorActorSystem, model.monitorPath, monitorActorRef, psThread)
+  }
+
+  def saveMeta(hdfsPath : String, meta : Properties, comments: String) {
+    val conf: Configuration = new Configuration
+    val fs: FileSystem = FileSystem.get(URI.create(hdfsPath), conf)
+
+    val dst: Path = new Path(hdfsPath + "/meta.txt")
+    val out: DataOutputStream = fs.create(dst)
+
+    meta.store(out, comments)
+
+    out.flush
+    out.close
+    fs.close()
+  }
+
+  def loadMeta(hdfsPath: String): Properties = {
+
+    val props = new Properties()
+    val conf: Configuration = new Configuration
+    val fs: FileSystem = FileSystem.get(URI.create(hdfsPath), conf)
+
+    val dst: Path = new Path(hdfsPath + "/meta.txt")
+    val in: DataInputStream = fs.open(dst)
+
+    props.load(in)
+    in.close
+    fs.close()
+
+    props
   }
 
 }
