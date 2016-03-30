@@ -1,4 +1,4 @@
-package com.intel.distml.example
+package com.intel.distml
 
 import java.io.Serializable
 

@@ -1,21 +1,19 @@
-package com.intel.distml.example
+package com.intel.distml.clustering
 
 import java.util
 
-import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import org.apache.commons.math3.distribution.UniformRealDistribution
-import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
-
-import _root_.scala.collection.JavaConversions._
-
-import com.intel.distml.api.{Session, Model}
+import com.intel.distml.Dict
+import com.intel.distml.api.{Model, Session}
 import com.intel.distml.platform.DistML
 import com.intel.distml.util._
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.commons.math3.distribution.{UniformIntegerDistribution, UniformRealDistribution}
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
+import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 
+import _root_.scala.collection.JavaConversions._
 import _root_.scala.collection.mutable
 import _root_.scala.collection.mutable.ListBuffer
 
@@ -28,147 +26,31 @@ import _root_.scala.collection.mutable.ListBuffer
 object LightLDA {
 
   val MH_STEPS = 4
-/*
-  def removeLabel(src : String) : String = {
-    val s = src.trim
-    val i = s.indexOf('\t')
-    if (i <= 0) s
 
-    s.substring(i+1)
-  }
+  def train(sc : SparkContext, samples : RDD[(Array[Int], Array[(Int, Int)])], V: Int, p : LDAParams): DistML[Iterator[(Int, String, DataStore)]]  = {
 
-  def getLabel(src : String) : String = {
-    val s = src.trim
-    val i = s.indexOf('\t')
-    if (i <= 0) s
-
-    s.substring(0, i)
-  }
-*/
-  def normalizeString(src : String) : String = {
-    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase();
-  }
-
-  def fromWordsToIds(bdic : Broadcast[Dict])(line : String) : Array[Int] = {
-
-    val dic = bdic.value
-
-    val words = line.split(" ")
-
-    var wordIDs = new ListBuffer[Int]();
-
-    for (w <- words) {
-      val wn = normalizeString(w)
-      if (dic.contains(wn)) {
-        wordIDs.append(dic.getID(wn))
-      }
-    }
-
-    wordIDs.toArray
-  }
-
-  def main(args: Array[String]) {
-
-    val defaultParams = new LDAParams()
-
-    val parser = new OptionParser[LDAParams]("LDAExample") {
-      head("LDAExample: an example LDA app for plain text data.")
-      opt[Int]("k")
-        .text(s"number of topics. default: ${defaultParams.k}")
-        .action((x, c) => c.copy(k = x))
-      opt[Int]("batchSize")
-        .text(s"number of samples used in one computing. default: ${defaultParams.batchSize}")
-        .action((x, c) => c.copy(batchSize = x))
-      opt[Int]("psCount")
-        .text(s"number of parameter servers. default: ${defaultParams.psCount}")
-        .action((x, c) => c.copy(psCount = x))
-      opt[Double]("alpha")
-        .text(s"super parameter for sampling. default: ${defaultParams.alpha}")
-        .action((x, c) => c.copy(alpha = x))
-      opt[Double]("beta")
-        .text(s"super parameter for sampling. default: ${defaultParams.beta}")
-        .action((x, c) => c.copy(beta = x))
-      opt[Int]("maxIterations")
-        .text(s"number of iterations of learning. default: ${defaultParams.maxIterations}")
-        .action((x, c) => c.copy(maxIterations = x))
-      opt[Boolean]("showPlexity")
-        .text(s"Show plexity after each iteration." +
-        s" default: ${defaultParams.showPlexity}")
-        .action((x, c) => c.copy(showPlexity = x))
-      arg[String]("<input>...")
-        .text("input paths (directories) to plain text corpora." +
-        "  Each text file line should hold 1 document.")
-        .unbounded()
-        .required()
-        .action((x, c) => c.copy(input = x))
-    }
-    parser.parse(args, defaultParams).map { params =>
-      run(params)
-    }.getOrElse {
-      parser.showUsageAsError
-      sys.exit(1)
-    }
-  }
-
-  private def run(p: LDAParams) {
-    val conf = new SparkConf().setAppName(s"DistML.Example.LDA")
-    conf.set("spark.driver.maxResultSize", "5g")
-
-    val sc = new SparkContext(conf)
-
-    var rawLines = sc.textFile(p.input).filter(s => s.trim().length > 0)
-
-    var dic = new Dict()
-
-    val words = rawLines.flatMap(line => line.split(" ")).map(normalizeString).filter(s => s.trim().length > 0).distinct().collect()
-    words.foreach(x => dic.addWord(x))
-
-    p.init(dic.getSize)
-
-    val bdic = sc.broadcast(dic)
-    var data = rawLines.map(fromWordsToIds(bdic)).map(ids => {
-//      println("=============== random initializing start ==================")
-      val topics = new ListBuffer[(Int, Int)]
-      ids.foreach(x => topics.append((x, Math.floor(Math.random() * p.k).toInt)))
-
-      val doctopic = new Array[Int](p.k)
-      topics.foreach(x => doctopic(x._2) = doctopic(x._2) + 1)
-
-//      println("=============== random initializing done ==================")
-      (doctopic, topics.toArray)
-    }).persist(StorageLevel.MEMORY_AND_DISK)
-
-    var statistics = data.map(d => (1, d._2.length)).reduce((a, b) => (a._1 + b._1, a._2 + b._2))
-
-    val m = new Model() {
-      registerMatrix("doc-topics", new IntArrayWithIntKey(p.k))
-      registerMatrix("word-topics", new IntMatrixWithIntKey(dic.getSize, p.k))
-    }
-
-    println("=============== Corpus Info Begin ================")
-    println("Vocaulary: " + dic.getSize)
-    println("Docs: " + statistics._1)
-    println("Tokens: " + statistics._2)
-    println("Topics: " + p.k)
-    println("=============== Corpus Info End   ================")
-
-    val dm = DistML.distribute(sc, m, p.psCount);
+    val m = new LDAModel(V, p.k, p.alpha, p.beta)
+    val dm = DistML.distribute(sc, m, p.psCount, DistML.defaultF)
     val monitorPath = dm.monitorPath
+    val batchSize = p.batchSize
 
-    //data = data.repartition(1)
-    data.mapPartitionsWithIndex(init(p, m, monitorPath)).count
+    var data = samples
+    val trainDataSize = samples.count
+    println("dataset size: " + trainDataSize)
+    dm.setTrainSetSize(trainDataSize)
 
+    data.mapPartitionsWithIndex(init(m, monitorPath, batchSize)).persist(StorageLevel.MEMORY_AND_DISK).count()
     for (iter <- 0 to p.maxIterations - 1) {
       println("================= iteration: " + iter + " =====================")
       //data.mapPartitionsWithIndex(verify(p, m, monitorPath)).count()
 
-      data = data.mapPartitionsWithIndex(train(p, m, monitorPath)).persist(StorageLevel.MEMORY_AND_DISK)
+      data = data.mapPartitionsWithIndex(train(m, monitorPath, batchSize)).persist(StorageLevel.MEMORY_AND_DISK)
       val count = data.count
 
       if (p.showPlexity) {
         var likeylyhood: Double = 0.0
         var n = 0
-        val t1: Array[(Double, Int)] = data.mapPartitionsWithIndex(perplexity(p, m, monitorPath)).collect()
+        val t1: Array[(Double, Int)] = data.mapPartitionsWithIndex(perplexity(m, monitorPath)).collect()
         for (item <- t1) {
           likeylyhood = likeylyhood + item._1
           n += item._2
@@ -182,25 +64,10 @@ object LightLDA {
       }
     }
 
-    var likeylyhood : Double = 0.0
-    var n = 0
-    val t1 : Array[(Double, Int)] = data.mapPartitionsWithIndex(perplexity(p, m, monitorPath)).collect()
-    for (item <- t1) {
-      likeylyhood = likeylyhood + item._1
-      n += item._2
-    }
-
-    //      val (likeylyhood, n) = data.mapPartitionsWithIndex(perplexity(p, m, monitorPath)).reduce((x, y) => (x._1 + y._1, x._2 + y._2))
-    val plexity = Math.exp(-likeylyhood/n)
-
-    println("iterations done with plexity=" + plexity)
-    println("===================================")
-
-    dm.recycle()
-    sc.stop
+    dm
   }
 
-  def init(p : LDAParams, m : Model, monitorPath : String)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
+  def init(m : LDAModel, monitorPath : String, batchSize : Int)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
             : Iterator[Int] = {
 
     println("[" + Thread.currentThread().getId + "] Init start: ")
@@ -214,7 +81,7 @@ object LightLDA {
       val samples = new util.LinkedList[(Array[Int], Array[(Int, Int)])]
 
       var count = 0
-      while ((count < p.batchSize) && it.hasNext) {
+      while ((count < batchSize) && it.hasNext) {
         samples.add(it.next())
         count = count + 1
       }
@@ -239,8 +106,8 @@ object LightLDA {
 
           var wts = wt.get(wId)
           if (wts == null) {
-            wts = new Array[Integer](p.k)
-            for (j <- 0 to p.k - 1) {
+            wts = new Array[Integer](m.K)
+            for (j <- 0 to m.K - 1) {
               wts(j) = 0
             }
             wts(topic) = 1
@@ -264,6 +131,7 @@ object LightLDA {
 
       dtm.push(dt, session)
       wtm.push(wt, session)
+
     }
 
     session.disconnect()
@@ -274,7 +142,7 @@ object LightLDA {
     r.iterator
   }
 
-  def train(p : LDAParams, m : Model, monitorPath : String)
+  def train(m : LDAModel, monitorPath : String, batchSize : Int)
            (index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])]) : Iterator[(Array[Int], Array[(Int, Int)])] = {
 
     println("[" + Thread.currentThread().getId + "] training start: ")
@@ -293,7 +161,7 @@ object LightLDA {
     while (it.hasNext) {
       samples.clear()
       var count = 0
-      while ((count < p.batchSize) && it.hasNext) {
+      while ((count < batchSize) && it.hasNext) {
         samples.add(it.next())
         count = count + 1
       }
@@ -307,7 +175,7 @@ object LightLDA {
 
       val dt = dtm.fetch(KeyCollection.ALL, session)
       val dt_old = new util.HashMap[Int, Int]
-      for (i <- 0 to p.k - 1) {
+      for (i <- 0 to m.K - 1) {
         dt_old.put(i, dt.get(i))
       }
 
@@ -328,20 +196,20 @@ object LightLDA {
       //show(p, samples)
 
       val tables = new util.HashMap[Int, AliasTable]
-      val q_w_proportion_ = new Array[(Int, Float)](p.k)
+      val q_w_proportion_ = new Array[(Int, Float)](m.K)
       for (w <- keys.keys)
-        buildAliasTable(w.toInt, p.alpha, p.beta, p.alpha_sum, p.beta_sum, p.k, p.V, wt, dt, q_w_proportion_, tables)
+        buildAliasTable(w.toInt, m.alpha, m.beta, m.alpha_sum, m.beta_sum, m.K, m.V, wt, dt, q_w_proportion_, tables)
 
       end = System.currentTimeMillis()
       println("build table: " + (end-start))
       start = end
 
       val u01 = new UniformRealDistribution
-      val u0k = new UniformIntegerDistribution(0, p.k-1)
+      val u0k = new UniformIntegerDistribution(0, m.K-1)
       val r = new java.util.Random()
 
       for (doc <- samples)
-        sampleOneDoc(p, doc, wt, dt, tables, r, u01, u0k)
+        sampleOneDoc(m, doc, wt, dt, tables, r, u01, u0k)
 
       end = System.currentTimeMillis()
       println("sample: " + (end-start))
@@ -368,6 +236,8 @@ object LightLDA {
       dtm.push(dt, session)
       wtm.push(wt, session)
 
+      session.progress(samples.size())
+
       end = System.currentTimeMillis()
       println("push: " + (end-start))
       start = end
@@ -383,7 +253,7 @@ object LightLDA {
     result.iterator
   }
 
-  def verify(p : LDAParams, m : Model, monitorPath : String)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
+  def verify(m : LDAModel, monitorPath : String)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
       : Iterator[Int] = {
 
     val session = new Session(m, monitorPath, index)
@@ -391,25 +261,25 @@ object LightLDA {
     val wtm = m.getMatrix("word-topics").asInstanceOf[IntMatrixWithIntKey]
 
     val dt = dtm.fetch(KeyCollection.ALL, session)
-    for (i <- 0 to p.k -1 ) {
+    for (i <- 0 to m.K -1 ) {
       println("dt(" + i + ") = " + dt(i))
     }
     val wt : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(KeyCollection.ALL, session)
-    for (w <- 0 to p.V - 1) {
-      for (i <- 0 to p.k - 1) {
+    for (w <- 0 to m.V - 1) {
+      for (i <- 0 to m.K - 1) {
         println("wt(" + w + ")(" + i + ") = " + wt(w)(i))
       }
     }
 
-    val t_dt = new Array[Int](p.k)
-    val t_wt = new Array[Array[Int]](p.V)
-    for (i <- 0 to p.V -1)
-      t_wt(i) = new Array[Int](p.k)
+    val t_dt = new Array[Int](m.K)
+    val t_wt = new Array[Array[Int]](m.V)
+    for (i <- 0 to m.V -1)
+      t_wt(i) = new Array[Int](m.K)
 
     while(it.hasNext) {
       val (ndk, words) = it.next()
 
-      val t_ndk = new Array[Int](p.k)
+      val t_ndk = new Array[Int](m.K)
       for (i <- 0 to words.length - 1) {
         val w = words(i)._1
         val t = words(i)._2
@@ -420,19 +290,19 @@ object LightLDA {
         t_wt(w)(t) += 1
       }
 
-      for (i <- 0 to p.k - 1) {
+      for (i <- 0 to m.K - 1) {
         if (ndk(i) != t_ndk(i))
           throw new IllegalStateException("verify failed, ndk(" + i + "): " + ndk(i) + ", " + t_ndk(i))
       }
     }
 
-    for (i <- 0 to p.k -1 ) {
+    for (i <- 0 to m.K -1 ) {
       if (dt(i) != t_dt(i))
         throw new IllegalStateException("verify failed, dt(" + i + "): " + dt(i) + ", " + t_dt(i))
     }
 
-    for (w <- 0 to p.V - 1) {
-      for (i <- 0 to p.k - 1) {
+    for (w <- 0 to m.V - 1) {
+      for (i <- 0 to m.K - 1) {
         if (wt(w)(i) != t_wt(w)(i))
           throw new IllegalStateException("verify failed, wt(" + w + ")(" + i + "): " + wt(i) + ", " + t_wt(i))
       }
@@ -443,7 +313,7 @@ object LightLDA {
   }
 
 
-  def inference(p : LDAParams, m : Model, monitorPath : String)
+  def inference(m : LDAModel, monitorPath : String)
                (index : Int, it : Iterator[Array[Int]]): Iterator[Array[Int]] = {
 
     val session = new Session(m, monitorPath, index)
@@ -459,14 +329,14 @@ object LightLDA {
     while (it.hasNext) {
       val words = it.next()
 
-      val ndk = new Array[Int](p.k)
+      val ndk = new Array[Int](m.K)
       val wordArray = new Array[(Int, Int)](words.length)
 
       for (i <- 0 to words.length - 1) {
         val w = words(i)
         keys.addKey(w)
 
-        val t = Math.floor(Math.random() * p.k).toInt
+        val t = Math.floor(Math.random() * m.K).toInt
         wordArray(i) = (i, t)
         ndk(t) += 1
       }
@@ -477,7 +347,7 @@ object LightLDA {
     val dt = dtm.fetch(KeyCollection.ALL, session)
     val wt : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
 
-    val prob = new Array[Double](p.k)
+    val prob = new Array[Double](m.K)
     for (iter <- 0 to 50) {
       for (i <- 0 to samples.size() -1 ) {
         val (ndk, words) = samples(i)
@@ -486,18 +356,18 @@ object LightLDA {
           val w: Int = words(n)._1
           val old: Int = words(n)._2
 
-          for (k <- 0 to p.k-1) {
-            val theta: Double = (ndk(k) + p.alpha) / (words.length + p.alpha_sum)
-            val phi: Double = (wt(w)(k) + p.beta) / (dt(k) + p.beta_sum)
+          for (k <- 0 to m.K-1) {
+            val theta: Double = (ndk(k) + m.alpha) / (words.length + m.alpha_sum)
+            val phi: Double = (wt(w)(k) + m.beta) / (dt(k) + m.beta_sum)
 
             prob(k) = theta * phi
           }
 
-          for (k <- 1 to p.k - 1) {
+          for (k <- 1 to m.K - 1) {
             prob(k) += prob(k-1)
           }
 
-          val u = Math.random() * prob(p.k - 1)
+          val u = Math.random() * prob(m.K - 1)
           def f(i : Int, prob_mass : Array[Double], p: Double) : Int = { if (i == prob_mass.length) prob_mass.length-1 else if (prob_mass(i) > p) i else f(i+1, prob_mass, p) }
           val topic = f(0, prob, u)
 
@@ -518,7 +388,7 @@ object LightLDA {
     result.iterator
   }
 
-  def perplexity(p : LDAParams, m : Model, monitorPath : String)
+  def perplexity(m : LDAModel, monitorPath : String)
                 (index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])]) : Iterator[(Double, Int)] = {
 
     val result = new Array[(Double, Int)](1)
@@ -559,9 +429,9 @@ object LightLDA {
         var l: Double = 0
         val w: Int = words(n)._1
 
-        for (k <- 0 to p.k-1) {
-          val theta: Double = (ndk(k) + p.alpha) / (words.length + p.alpha_sum)
-          val phi: Double = (nwk(w)(k) + p.beta) / (nk(k) + p.beta_sum)
+        for (k <- 0 to m.K-1) {
+          val theta: Double = (ndk(k) + m.alpha) / (words.length + m.alpha_sum)
+          val phi: Double = (nwk(w)(k) + m.beta) / (nk(k) + m.beta_sum)
           l += theta * phi
         }
         log_likelihood += Math.log(l)
@@ -610,12 +480,12 @@ object LightLDA {
     }
   }
 
-  def show(p : LDAParams, samples : util.LinkedList[(Array[Int], Array[(Int, Int)])]): Unit = {
+  def show(m : LDAModel, samples : util.LinkedList[(Array[Int], Array[(Int, Int)])]): Unit = {
     println("========showing local nwk===========")
 
-    val nwk = new Array[Array[Int]](p.V)
-    for (i <- 0 to p.V -1 ) {
-      nwk(i) = new Array[Int](p.k)
+    val nwk = new Array[Array[Int]](m.V)
+    for (i <- 0 to m.V -1 ) {
+      nwk(i) = new Array[Int](m.K)
     }
 
     for (i <- 0 to samples.length - 1) {
@@ -630,16 +500,16 @@ object LightLDA {
       }
     }
 
-    for (i <- 0 to p.V -1 ) {
+    for (i <- 0 to m.V -1 ) {
       print("w[" + i + "]")
-      for (j <- 0 to p.k -1) {
+      for (j <- 0 to m.K -1) {
         print(" " + nwk(i)(j))
       }
       println
     }
   }
 
-  def sampleOneDoc(p : LDAParams, doc : (Array[Int], Array[(Int, Int)]),
+  def sampleOneDoc(m : LDAModel, doc : (Array[Int], Array[(Int, Int)]),
                    nwk: util.HashMap[Integer, Array[Integer]],
                    nk : util.HashMap[Integer, Integer],
                    tables : util.HashMap[Int, AliasTable],
@@ -655,7 +525,7 @@ object LightLDA {
       val (w, old_topic) = words(i)
       val aliasTable = tables(w)
 
-      val new_topic = sample(p.alpha, p.beta, p.alpha_sum, p.beta_sum, p.k,
+      val new_topic = sample(m.alpha, m.beta, m.alpha_sum, m.beta_sum, m.K,
         nwk, nk, ndk, words, i, tables(w), r, u01, u0k)
 
       if (old_topic != new_topic) {

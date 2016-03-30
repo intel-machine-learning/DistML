@@ -10,7 +10,7 @@ import java.util.Date;
  */
 public class Logger {
 
-    private final static String[] levels = {"DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"};
+    private final static String[] levels = {"NOTUSED", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"};
 
     private final static int DEBUG      = 1;
     private final static int INFO       = 2;

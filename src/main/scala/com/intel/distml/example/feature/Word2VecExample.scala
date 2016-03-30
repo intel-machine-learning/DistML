@@ -1,7 +1,7 @@
 package com.intel.distml.example.feature
 
+import com.intel.distml.Dict
 import com.intel.distml.api.{Session, Model}
-import com.intel.distml.example.Dict
 import com.intel.distml.feature.Word2Vec
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{SparkContext, SparkConf}

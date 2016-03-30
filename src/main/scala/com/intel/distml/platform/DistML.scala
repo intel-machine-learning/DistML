@@ -63,6 +63,17 @@ psDriverThread : ParamServerDriver[T]
     }
   }
 
+  def setTrainSetSize(size : Long): Unit = {
+    assertReady()
+
+    val req = new StartTraining(size)
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
+  }
+
   def iterationDone(): Unit = {
     assertReady()
 

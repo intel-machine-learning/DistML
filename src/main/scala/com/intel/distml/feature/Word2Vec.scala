@@ -144,6 +144,7 @@ object Word2Vec {
     // create distributed model and load parameters
     val m = new Word2VecModel(vocabSize, vectorSize)
 
+
     val dm = DistML.distribute(sc, m, psCount, DistML.defaultF)
     val monitorPath = dm.monitorPath
 
@@ -193,6 +194,7 @@ object Word2Vec {
     val m = dm.model
     val monitorPath = dm.monitorPath
 
+    dm.setTrainSetSize(data.count())
     for (iter <- 0 to maxIterations - 1) {
       println("============ Iteration Begin: " + iter + " ==============")
 

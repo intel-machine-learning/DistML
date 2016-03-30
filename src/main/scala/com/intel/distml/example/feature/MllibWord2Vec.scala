@@ -1,7 +1,7 @@
-package com.intel.distml.example
+package com.intel.distml.example.feature
 
 import org.apache.spark._
-import org.apache.spark.mllib.feature.{Word2Vec}
+import org.apache.spark.mllib.feature.Word2Vec
 
 /**
  * Created by yunlong on 1/29/16.

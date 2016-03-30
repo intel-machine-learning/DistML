@@ -1,4 +1,4 @@
-package com.intel.distml.example
+package com.intel.distml.clustering
 
 /**
  * Created by yunlong on 12/23/15.
@@ -11,6 +11,7 @@ var k: Int = 20,
 var alpha : Double = 0.01,
 var beta : Double = 0.01,
 var maxIterations: Int = 10,
+val partitions : Int = 2,
 var showPlexity: Boolean = true)
 {
 

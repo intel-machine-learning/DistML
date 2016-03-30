@@ -1,9 +1,7 @@
-package com.intel.distml.example
+package com.intel.distml.clustering
 
 import java.util
 import java.util.Random
-
-import scala.collection.mutable
 
 /**
  * Created by yunlong on 12/19/15.

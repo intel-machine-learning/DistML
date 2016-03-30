@@ -25,6 +25,19 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
+    public static class StartTraining extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        long size;
+        public StartTraining(long size) {
+            this.size = size;
+        }
+
+        public String toString() {
+            return "IterationDone";
+        }
+    }
+
     public static class IterationDone extends DriverRequest {
         private static final long serialVersionUID = 1L;
 
@@ -159,7 +172,10 @@ public class MonitorActor extends UntypedActor {
     private LinkedList<ActorRef> workers;
 
     private Model model;
-    private int progress;
+
+    private long trainSetSize;
+    private long progress;
+    private long lastProgressReport;
 
     private DriverRequest pendingRequest;
     private int psCounter = 0;
@@ -175,7 +191,10 @@ public class MonitorActor extends UntypedActor {
 
         pendingRequest = null;
         psCounter = 0;
+
+        trainSetSize = 0;
         progress = 0;
+        lastProgressReport = 0;
 
         log("Monitor created, psCount:" + psCount);
     }
@@ -254,7 +273,17 @@ public class MonitorActor extends UntypedActor {
             for (int i = 0; i < parameterServers.length; i++) {
                 parameterServers[i].tell(msg, getSelf());
             }
+
             progress = 0;
+            lastProgressReport = 0;
+        }
+        else if (msg instanceof StartTraining) {
+            trainSetSize = ((StartTraining) msg).size;
+            log("train set size: " + trainSetSize);
+            progress = 0;
+            lastProgressReport = 0;
+
+            ((StartTraining) msg).done = true;
         }
         else if (msg instanceof PSActor.ModelSetupDone) {
             psCounter++;
@@ -270,7 +299,17 @@ public class MonitorActor extends UntypedActor {
             getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
         } else if (msg instanceof WorkerActor.Progress) {
             progress += ((WorkerActor.Progress) msg).sampleCount;
-            log("progress: " + progress);
+            if (trainSetSize > 0) {
+                if (progress == trainSetSize) {
+                    log("progress: 100%");
+                } else if (((double) progress - lastProgressReport) / trainSetSize > 0.01) {
+                    lastProgressReport = progress;
+                    log("progress: " + (lastProgressReport * 100 / trainSetSize) + "%");
+                }
+            }
+            else {
+                log("progress: " + progress);
+            }
         } else if (msg instanceof TrainingDone) {
             stopAll();
         }
