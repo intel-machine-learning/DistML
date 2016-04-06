@@ -62,6 +62,8 @@ object LightLDA {
         println("iteration done: " + iter + " on " + count + " samples with plexity=" + plexity)
         println("===================================")
       }
+
+      dm.iterationDone()
     }
 
     dm

@@ -307,7 +307,7 @@ object Word2Vec {
           }
           pushClock.stop()
 
-          session.progress(wordCount)
+          session.progress(samples.size)
         }
 
 
