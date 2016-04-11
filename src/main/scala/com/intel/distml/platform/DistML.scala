@@ -74,6 +74,17 @@ psDriverThread : ParamServerDriver[T]
     }
   }
 
+  def startSSP(maxIterations : Int, maxLag : Int): Unit = {
+    assertReady()
+
+    val req = StartTraining.ssp(maxIterations, maxLag);
+
+    monitorActor.tell(req, null)
+    while (!req.done) {
+      Thread.sleep(10)
+    }
+  }
+
   def iterationDone(): Unit = {
     assertReady()
 

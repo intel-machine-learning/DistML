@@ -4,6 +4,7 @@ import java.util
 
 import com.intel.distml.api.Model
 import com.intel.distml.platform.DistML
+import com.intel.distml.util.DataStore
 import com.intel.distml.util.scala.DoubleArrayWithIntKey
 import com.intel.distml.util.store.DoubleArrayStore
 import org.apache.spark.rdd.RDD
@@ -21,13 +22,15 @@ object MelBlanc {
 
   private case class Params(
                              psCount: Int = 1,
-                             input: String = null,
-                             modelPath : String = null,
+                             trainType : String = "ssp",
+                             maxIterations: Int = 100,
+                             batchSize: Int = 100,  // for asgd only
+                             maxLag : Int = 2,    // for ssp only
                              dim: Int = 10000000,
                              eta: Double = 0.0001,
                              partitions : Int = 1,
-                             batchSize: Int = 100,
-                             maxIterations: Int = 100
+                             input: String = null,
+                             modelPath : String = null
                              )
 
   def parseBlanc(line: String): (HashMap[Int, Double], Int) = {
@@ -51,24 +54,30 @@ object MelBlanc {
 
     val parser = new OptionParser[Params]("LDAExample") {
       head("LDAExample: an example LDA app for plain text data.")
-      opt[Int]("dim")
-        .text(s"dimension of features. default: ${defaultParams.dim}")
-        .action((x, c) => c.copy(dim = x))
       opt[Int]("psCount")
         .text(s"number of parameter servers. default: ${defaultParams.psCount}")
         .action((x, c) => c.copy(psCount = x))
-      opt[Int]("partitions")
-        .text(s"number of partitions for training data. default: ${defaultParams.partitions}")
-        .action((x, c) => c.copy(partitions = x))
-      opt[Int]("batchSize")
-        .text(s"number of samples computed in a round. default: ${defaultParams.batchSize}")
-        .action((x, c) => c.copy(batchSize = x))
+      opt[String]("trainType")
+        .text(s"how to train your model: bsp, ssp or asgd. default: ${defaultParams.trainType}")
+        .action((x, c) => c.copy(trainType = x))
       opt[Int]("maxIterations")
         .text(s"number of iterations of learning. default: ${defaultParams.maxIterations}")
         .action((x, c) => c.copy(maxIterations = x))
+      opt[Int]("batchSize")
+        .text(s"number of samples computed in a round. default: ${defaultParams.batchSize}")
+        .action((x, c) => c.copy(batchSize = x))
+      opt[Int]("maxLag")
+        .text(s"maximum number of iterations between the fast worker and the slowest worker. default: ${defaultParams.maxLag}")
+        .action((x, c) => c.copy(maxLag = x))
+      opt[Int]("dim")
+        .text(s"dimension of features. default: ${defaultParams.dim}")
+        .action((x, c) => c.copy(dim = x))
       opt[Double]("eta")
         .text(s"learning rate. default: ${defaultParams.eta}")
         .action((x, c) => c.copy(eta = x))
+      opt[Int]("partitions")
+        .text(s"number of partitions for training data. default: ${defaultParams.partitions}")
+        .action((x, c) => c.copy(partitions = x))
       arg[String]("<input>...")
         .text("path to train the model")
         .required()
@@ -103,20 +112,29 @@ object MelBlanc {
     val trainSet = t(0).repartition(p.partitions)
     val testSet = t(1)
 
-    train(sc, trainSet, p.psCount, p.dim, 1, p.batchSize, p.modelPath)
+    train(sc, trainSet, p)
     var auc = verify(sc, testSet, p.modelPath)
     println("auc: " + auc)
 
-    trainAgain(sc, trainSet, p.maxIterations, p.batchSize, p.modelPath)
-    auc = verify(sc, testSet, p.modelPath)
-    println("auc: " + auc)
+//    trainAgain(sc, trainSet, p.maxIterations, p.batchSize, p.modelPath)
+//    auc = verify(sc, testSet, p.modelPath)
+//    println("auc: " + auc)
 
     sc.stop()
   }
 
-  def train(sc : SparkContext, samples : RDD[(HashMap[Int, Double], Int)], psCount : Int, dim : Int, maxIterations : Int, batchSize : Int, modelPath : String): Unit = {
-    val dm = LR.train(sc, samples, psCount, dim, maxIterations, batchSize)
-    LR.save(dm, modelPath, "")
+  def train(sc : SparkContext, samples : RDD[(HashMap[Int, Double], Int)], p : Params): Unit = {
+    var dm : DistML[Iterator[(Int, String, DataStore)]] = null
+    if (p.trainType.equals("bsp")) {
+      dm = LR.trainSSP(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, 0)
+    }
+    else if (p.trainType.equals("ssp")) {
+      dm = LR.trainSSP(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.maxLag)
+    }
+    else if (p.trainType.equals("asgd")) {
+      dm = LR.trainASGD(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.batchSize)
+    }
+    LR.save(dm, p.modelPath, "")
     dm.recycle()
   }
 
@@ -131,9 +149,9 @@ object MelBlanc {
     auc
   }
 
-  def trainAgain(sc : SparkContext, samples : RDD[(HashMap[Int, Double], Int)], maxIterations : Int, batchSize : Int, modelPath : String): Unit = {
+  def trainAgain(sc : SparkContext, samples : RDD[(HashMap[Int, Double], Int)], eta : Double, maxIterations : Int, batchSize : Int, modelPath : String): Unit = {
     val dm = LR.load(sc, modelPath)
-    LR.train(samples, dm, maxIterations, batchSize)
+    LR.trainASGD(samples, dm, eta, maxIterations, batchSize)
     LR.save(dm, modelPath, "")
     dm.recycle()
   }
