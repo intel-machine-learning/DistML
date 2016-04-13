@@ -51,14 +51,43 @@ public class WorkerActor extends UntypedActor {
         }
     }
 
-    ActorSelection monitor;
-	Model model;
-    int psCount;
-    Session de;
+    public static class AppRequest implements Serializable {
+        private static final long serialVersionUID = 1L;
 
-    String[] psAddrs;
-    int workerIndex;
+        public boolean done;
+        public AppRequest() {
+            done = false;
+        }
 
+        public String toString() {
+            return "DriverRequest";
+        }
+    }
+
+    public static class IterationDone extends AppRequest {
+        private static final long serialVersionUID = 1L;
+
+        int iteration;
+        double cost;
+        public IterationDone(int iteration, double cost) {
+            this.iteration = iteration;
+            this.cost = cost;
+        }
+
+        public String toString() {
+            return "IterationDone";
+        }
+    }
+
+    private ActorSelection monitor;
+    private Model model;
+    private int psCount;
+    private Session de;
+
+    private String[] psAddrs;
+    private int workerIndex;
+
+    private AppRequest pendingRequest;
 
 	public WorkerActor(final Session de, Model model, String monitorPath, int workerIndex) {
         this.monitor = getContext().actorSelection(monitorPath);
@@ -67,7 +96,7 @@ public class WorkerActor extends UntypedActor {
         this.de = de;
 
         this.monitor.tell(new RegisterRequest(this.workerIndex), getSelf());
-        log("Worker register to monitor: " + monitorPath);
+        log("Worker " + workerIndex + " register to monitor: " + monitorPath);
 	}
 
 	public static <ST> Props props(final Session de,final Model model, final String monitorPath, final int index) {
@@ -92,6 +121,15 @@ public class WorkerActor extends UntypedActor {
         }
         else if (msg instanceof Progress) {
             this.monitor.tell(msg, getSelf());
+        }
+        else if (msg instanceof IterationDone) {
+            IterationDone req = (IterationDone) msg;
+            pendingRequest = (AppRequest)msg;
+            monitor.tell(new MonitorActor.SSP_IterationDone(workerIndex, req.iteration, req.cost), getSelf());
+        }
+        else if (msg instanceof MonitorActor.SSP_IterationNext) {
+            assert(pendingRequest != null);
+            pendingRequest.done = true;
         }
         else unhandled(msg);
 	}

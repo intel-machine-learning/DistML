@@ -2,6 +2,7 @@ package com.intel.distml.api;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import com.intel.distml.platform.MonitorActor;
 import com.intel.distml.platform.WorkerActor;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -49,6 +50,18 @@ public class Session {
 
     public void progress(int sampleCount) {
         worker.tell(new WorkerActor.Progress(sampleCount), null);
+    }
+
+    public void iterationDone(int iteration) {
+        iterationDone(iteration, 0.0);
+    }
+
+    public void iterationDone(int iteration, double cost) {
+        WorkerActor.IterationDone req = new WorkerActor.IterationDone(iteration, cost);
+        worker.tell(req, null);
+        while(!req.done) {
+            try { Thread.sleep(100); } catch (Exception e) {}
+        }
     }
 
     public void disconnect() {

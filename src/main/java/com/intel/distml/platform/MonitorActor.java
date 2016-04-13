@@ -2,6 +2,7 @@ package com.intel.distml.platform;
 
 import java.io.Serializable;
 import java.util.LinkedList;
+import java.util.Properties;
 
 import akka.actor.*;
 import akka.japi.Creator;
@@ -11,11 +12,15 @@ import com.intel.distml.util.*;
 
 public class MonitorActor extends UntypedActor {
 
+    public static final int TRAIN_BSP = 0;
+    public static final int TRAIN_ASGD = 1;
+    public static final int TRAIN_SSP = 2;
+    public static final int TRAIN_SSGD = 3;
 
     public static class DriverRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        boolean done;
+        public boolean done;
         public DriverRequest() {
             done = false;
         }
@@ -28,9 +33,26 @@ public class MonitorActor extends UntypedActor {
     public static class StartTraining extends DriverRequest {
         private static final long serialVersionUID = 1L;
 
+        int trainType;
         long size;
+        int maxIterations;
+        int maxLag;
+
         public StartTraining(long size) {
+            this(TRAIN_ASGD, size);
+        }
+
+        public StartTraining(int trainType, long size) {
+            this.trainType = trainType;
             this.size = size;
+        }
+
+        public static StartTraining ssp(int maxIterations, int maxLag) {
+            StartTraining req = new StartTraining(TRAIN_SSP, 0);
+            req.maxIterations = maxIterations;
+            req.maxLag = maxLag;
+
+            return req;
         }
 
         public String toString() {
@@ -139,12 +161,47 @@ public class MonitorActor extends UntypedActor {
     public static class TrainingDone implements Serializable {
         private static final long serialVersionUID = 1L;
 
+        Properties report;
         public TrainingDone() {
-
+            this(new Properties());
+        }
+        public TrainingDone(Properties report) {
+            this.report = report;
         }
 
         public String toString() {
             return "TrainingDone";
+        }
+    }
+
+    public static class SSP_IterationDone implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        int workerIndex;
+        int iteration;
+        double cost;
+        public SSP_IterationDone(int workerIndex, int iteration) {
+            this(workerIndex, iteration, 0.0);
+        }
+        public SSP_IterationDone(int workerIndex, int iteration, double cost) {
+            this.workerIndex = workerIndex;
+            this.iteration = iteration;
+            this.cost = cost;
+        }
+
+        public String toString() {
+            return "SSP_IterationDone";
+        }
+    }
+
+    public static class SSP_IterationNext implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        public SSP_IterationNext() {
+        }
+
+        public String toString() {
+            return "SSP_IterationNext";
         }
     }
 
@@ -164,15 +221,26 @@ public class MonitorActor extends UntypedActor {
         }
     }
 
+    private static class WorkerInfo {
+        int workerIndex;
+        ActorRef ref;
+
+        public WorkerInfo(int workerIndex, ActorRef ref) {
+            this.workerIndex = workerIndex;
+            this.ref = ref;
+        }
+    }
+
     private final int psCount;
 
     private ActorRef[] parameterServers;
     private String[] psAddrs;
 
-    private LinkedList<ActorRef> workers;
+    private LinkedList<WorkerInfo> workers;
 
     private Model model;
 
+    private int trainType;
     private long trainSetSize;
     private long progress;
     private long lastProgressReport;
@@ -180,12 +248,14 @@ public class MonitorActor extends UntypedActor {
     private DriverRequest pendingRequest;
     private int psCounter = 0;
 
+    private SSP ssp;
+
 
     public MonitorActor(Model model) {
         this.psCount = model.psCount;
         this.parameterServers = new ActorRef[psCount];
         this.psAddrs = new String[psCount];
-        this.workers = new LinkedList<ActorRef>();
+        this.workers = new LinkedList<WorkerInfo>();
 
         this.model = model;
 
@@ -278,10 +348,16 @@ public class MonitorActor extends UntypedActor {
             lastProgressReport = 0;
         }
         else if (msg instanceof StartTraining) {
-            trainSetSize = ((StartTraining) msg).size;
+            StartTraining req = (StartTraining) msg;
+            trainType = req.trainType;
+            trainSetSize = req.size;
             log("train set size: " + trainSetSize);
             progress = 0;
             lastProgressReport = 0;
+
+            if (trainType == TRAIN_SSP) {
+                ssp = new SSP(req.maxIterations, req.maxLag);
+            }
 
             ((StartTraining) msg).done = true;
         }
@@ -295,7 +371,7 @@ public class MonitorActor extends UntypedActor {
         else if (msg instanceof WorkerActor.RegisterRequest) {
             WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
 
-            workers.add(getSender());
+            workers.add(new WorkerInfo(info.globalWorkerIndex, getSender()));
             getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
         } else if (msg instanceof WorkerActor.Progress) {
             progress += ((WorkerActor.Progress) msg).sampleCount;
@@ -310,7 +386,33 @@ public class MonitorActor extends UntypedActor {
             else {
                 log("progress: " + progress);
             }
+        } else if (msg instanceof SSP_IterationDone) {
+            SSP_IterationDone req = (SSP_IterationDone) msg;
+
+            if (Math.abs(req.cost) > 1e-6) {
+                log("worker " + req.workerIndex + " progress: " + req.iteration + " cost = " + req.cost);
+            }
+            else {
+                log("worker " + req.workerIndex + " progress: " + req.iteration);
+            }
+            SSP.CheckResult result = ssp.progress(req.workerIndex, req.iteration);
+            if (!result.waiting) {
+                log("tell worker " + req.workerIndex + " to contiune");
+                getSender().tell(new SSP_IterationNext(), getSelf());
+            }
+
+            for (int i : result.workersToNotify) {
+                for (WorkerInfo w : workers) {
+                    if (w.workerIndex == i) {
+                        log("tell worker " + i + " to resume");
+                        w.ref.tell(new SSP_IterationNext(), getSelf());
+                    }
+                }
+            }
+
+
         } else if (msg instanceof TrainingDone) {
+            log("Traing complete");
             stopAll();
         }
     }

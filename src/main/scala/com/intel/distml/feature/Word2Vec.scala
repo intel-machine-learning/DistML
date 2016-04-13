@@ -184,12 +184,13 @@ object Word2Vec {
 
     var alpha = initialAlpha
 
-    train(data, dm, vectorSize, btree, useCbow, maxIterations, window, batchSize)
+    trainASGD(data, dm, vectorSize, btree, useCbow, maxIterations, window, batchSize)
+    //trainSSP(data, dm, vectorSize, btree, useCbow, maxIterations, window)
 
     dm
   }
 
-  def train(data : RDD[Array[Int]], dm : DistML[Iterator[(Int, String, DataStore)]], vectorSize : Int, btree : Broadcast[WordTree],
+  def trainASGD(data : RDD[Array[Int]], dm : DistML[Iterator[(Int, String, DataStore)]], vectorSize : Int, btree : Broadcast[WordTree],
             useCbow : Boolean, maxIterations : Int, window : Int, batchSize : Int): Unit = {
     val m = dm.model
     val monitorPath = dm.monitorPath
@@ -266,7 +267,6 @@ object Word2Vec {
             syn1s(index) = s1
             alpha0s(index) = a0
             alpha1s(index) = a1
-            println("fetched: " + key + ", " + s0(0) + ", " + a0(0))
           }
           fetchClock.stop()
 
@@ -310,7 +310,6 @@ object Word2Vec {
           session.progress(samples.size)
         }
 
-
         println("--- disconnect ---")
         session.disconnect()
 
@@ -324,6 +323,142 @@ object Word2Vec {
       dm.iterationDone()
       println("============ Iteration End: " + iter + " ==============")
     }
+  }
+
+  def trainSSP(data : RDD[Array[Int]], dm : DistML[Iterator[(Int, String, DataStore)]], vectorSize : Int, btree : Broadcast[WordTree],
+            useCbow : Boolean, maxIterations : Int, window : Int): Unit = {
+    val m = dm.model
+    val monitorPath = dm.monitorPath
+
+    dm.setTrainSetSize(data.count())
+    dm.startSSP(maxIterations, 2)
+
+    val t = data.mapPartitionsWithIndex((index, it) => {
+
+        println("--- connecting to PS ---")
+        val session = new Session(m, monitorPath, index)
+        val syn0d = m.getMatrix("syn0").asInstanceOf[FloatMatrixAdapGradWithIntKey]
+        val syn1d = m.getMatrix("syn1").asInstanceOf[FloatMatrixAdapGradWithIntKey]
+
+        val wordTree = btree.value
+        var trainedWords = 0L
+        val syn0s = new Array[Array[Float]](wordTree.vocabSize)
+        val syn1s = new Array[Array[Float]](wordTree.vocabSize)
+        val alpha0s = new Array[Array[Float]](wordTree.vocabSize)
+        val alpha1s = new Array[Array[Float]](wordTree.vocabSize)
+
+        var nextRandom: Long = 5
+        var expTable: Array[Float] = null;
+        var neu1 = new Array[Float](vectorSize)
+        var neu1e = new Array[Float](vectorSize)
+
+        expTable = new Array[Float](EXP_TABLE_SIZE)
+        var i: Int = 0
+        for (i <- 0 to EXP_TABLE_SIZE-1) {
+          expTable(i) = math.exp(((i / EXP_TABLE_SIZE.asInstanceOf[Float] * 2 - 1) * MAX_EXP)).toFloat
+          expTable(i) = expTable(i) / (expTable(i) + 1)
+        }
+
+        val fetchClock = new Clock("Fetch")
+        val trainClock = new Clock("Train")
+        val pushClock = new Clock("Push")
+
+        var wc = 0L
+        var lastWc = 0L
+        val samples = new mutable.MutableList[Array[Int]]
+        while (it.hasNext) {
+          samples.clear()
+          while (it.hasNext) {
+            val line = it.next()
+            samples += line
+          }
+        }
+
+          val keys = new KeyList()
+          for(wIds <- samples) {
+            for (wId <- wIds) {
+              keys.addKey(wId)
+              val w = wordTree.getWord(wId)
+              for (d <- 0 to w.codeLen-1) {
+                keys.addKey(w.point(d))
+              }
+            }
+          }
+
+        for (iter <- 0 to maxIterations - 1) {
+          println("============ Iteration Begin: " + iter + " ==============")
+
+          fetchClock.start()
+          val s0s = syn0d.fetch(keys, session)
+          val s1s = syn1d.fetch(keys, session)
+          for (key <- keys.keys) {
+            val index = key.toInt
+            val s0 = s0s.get(index).get._1
+            val s1 = s1s.get(index).get._1
+            val a0 = s0s.get(index).get._2
+            val a1 = s1s.get(index).get._2
+            syn0s(index) = s0
+            syn1s(index) = s1
+            alpha0s(index) = a0
+            alpha1s(index) = a1
+          }
+          fetchClock.stop()
+
+          val syn0s_old = syn0d.cloneData(s0s)
+          val syn1s_old = syn1d.cloneData(s1s)
+
+          trainClock.start()
+          var count = 0;
+          for (wIds : Array[Int] <- samples) {
+            val sentence = new Array[WordNode](wIds.length)
+            for (i <- 0 to wIds.length - 1) {
+              sentence(i) = wordTree.getWord(wIds(i))
+            }
+
+            for (sentence_pos <- 0 to sentence.size - 1) {
+              nextRandom = nextRandom * 25214903917L + 11
+              var b = (nextRandom % window).toInt
+              if (useCbow) {
+                cbow(wordTree, sentence, sentence_pos, window, b, syn0s, syn1s, alpha0s, alpha1s, neu1, neu1e, expTable)
+              }
+              else {
+                skipGram(wordTree, sentence, sentence_pos, window, b, syn0s, syn1s, alpha0s, alpha1s, neu1, neu1e, expTable)
+              }
+            }
+
+            count += 1
+            if (count % 1000 == 0) {
+              println("progress: " + count)
+            }
+          }
+          trainClock.stop()
+
+          pushClock.start()
+          syn0d.getUpdate(s0s, syn0s_old)
+          syn0d.push(syn0s_old, session)
+          syn1d.getUpdate(s1s, syn1s_old)
+          syn1d.push(syn1s_old, session)
+          for (key <- keys.keys) {
+            val k = key.toInt
+            syn0s(k) = null
+            syn1s(k) = null
+            alpha0s(k) = null
+            alpha1s(k) = null
+          }
+          pushClock.stop()
+
+          session.iterationDone(iter)
+        }
+
+        println("--- disconnect ---")
+        session.disconnect()
+
+        val r = new Array[Double](1)
+        r(0) = 1
+        r.iterator
+    })
+
+    t.count()
   }
 
 

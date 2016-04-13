@@ -28,8 +28,6 @@ import scala.collection.mutable
 
 object LogisticRegression {
 
-  var eta = 0.01
-
   def load(sc: SparkContext, hdfsPath: String): DistML[Iterator[(Int, String, DataStore)]] = {
 
     // read meta
@@ -65,11 +63,13 @@ object LogisticRegression {
     DistML.saveMeta(hdfsPath, props, comments)
   }
 
-  def train(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],
-            maxIterations : Int, batchSize : Int): Unit = {
+  def trainASGD(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],
+            eta : Double, maxIterations : Int, batchSize : Int): Unit = {
 
     val m = dm.model
     val monitorPath = dm.monitorPath
+
+    dm.setTrainSetSize(samples.count())
 
     for (iter <- 0 to maxIterations - 1) {
       println("============ Iteration: " + iter + " ==============")
@@ -149,8 +149,84 @@ object LogisticRegression {
 
   }
 
-  def train(sc : SparkContext, samples: RDD[(mutable.HashMap[Int, Double], Int)], psCount : Int, dim : Long,
-            maxIterations : Int, batchSize : Int): DistML[Iterator[(Int, String, DataStore)]] = {
+  def trainSSP(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],
+            eta : Double, maxIterations : Int, maxLag: Int): Unit = {
+
+    val m = dm.model
+    val monitorPath = dm.monitorPath
+
+    dm.setTrainSetSize(samples.count())
+    dm.startSSP(maxIterations, maxLag)
+
+    val t = samples.mapPartitionsWithIndex((index, it) => {
+
+      println("--- connecting to PS ---")
+      val session = new Session(m, monitorPath, index)
+      val wd = m.getMatrix("weights").asInstanceOf[DoubleArrayWithIntKey]
+
+      val data = it.toArray
+
+
+      val keys = new KeyList()
+      for (item <- data) {
+        for (key <- item._1.keySet) {
+          keys.addKey(key)
+        }
+      }
+
+      var cost = 0.0
+      for (iter <- 0 to maxIterations - 1) {
+        println("============ Iteration: " + iter + " ==============")
+        val w = wd.fetch(keys, session)
+
+        val w_old = new util.HashMap[Long, Double]
+        for ((key, value) <- w) {
+          w_old.put(key, value)
+        }
+
+        cost = 0.0
+        for ((x, label) <- data) {
+          var sum = 0.0
+          for ((k, v) <- x) {
+            sum += w(k) * v
+          }
+          val h = 1.0 / (1.0 + Math.exp(-sum))
+
+          val err = eta * (h - label)
+          for ((k, v) <- x) {
+            w.put(k, w(k) - err * v)
+          }
+
+          cost = cost - (label * Math.log(h) + (1 - label) * Math.log(1 - h))
+        }
+
+        cost /= data.length
+
+        for (key <- w.keySet) {
+          val grad: Double = w(key) - w_old(key)
+          w.put(key, grad)
+        }
+
+        wd.push(w, session)
+
+        println("Iteration done: cost = " + cost)
+        session.iterationDone(iter, cost)
+      }
+
+      println("--- disconnect ---")
+      session.disconnect()
+
+      val r = new Array[Double](1)
+      r(0) = -cost
+      r.iterator
+    })
+
+    val totalCost = t.reduce(_+_)
+    println("============ Training done, Total Cost: " + totalCost + " ============")
+  }
+
+  def trainASGD(sc : SparkContext, samples: RDD[(mutable.HashMap[Int, Double], Int)], psCount : Int, dim : Long,
+            eta : Double, maxIterations : Int, batchSize : Int): DistML[Iterator[(Int, String, DataStore)]] = {
 
     val m = new Model() {
       registerMatrix("weights", new DoubleArrayWithIntKey(dim + 1))
@@ -159,7 +235,23 @@ object LogisticRegression {
     val dm = DistML.distribute(sc, m, psCount, DistML.defaultF)
     val monitorPath = dm.monitorPath
 
-    train(samples, dm, maxIterations, batchSize)
+    trainASGD(samples, dm, eta, maxIterations, batchSize)
+
+    dm
+  }
+
+  def trainSSP(sc : SparkContext, samples: RDD[(mutable.HashMap[Int, Double], Int)], psCount : Int, dim : Long,
+            eta : Double, maxIterations : Int, maxLag : Int): DistML[Iterator[(Int, String, DataStore)]] = {
+
+    val m = new Model() {
+      registerMatrix("weights", new DoubleArrayWithIntKey(dim + 1))
+    }
+
+    val dm = DistML.distribute(sc, m, psCount, DistML.defaultF)
+    val monitorPath = dm.monitorPath
+
+    //    trainASGD(samples, dm, maxIterations, batchSize)
+    trainSSP(samples, dm, eta, maxIterations, maxLag)
 
     dm
   }
