@@ -101,7 +101,7 @@ def run(params: Params) {
     val ratings = sc.textFile(params.ratingFile).map {line =>
       val fields = line.split(',')
       Rating(fields(0).toInt - 1, fields(1).toInt - 1, fields(2).toDouble)
-    }.cache()
+    }
     val U = ratings.map(_.uid).distinct().count()
     val V = ratings.map(_.pid).distinct().count()
 
@@ -114,7 +114,7 @@ def run(params: Params) {
       registerMatrix("product", new DoubleMatrixWithIntKey(V, rank))
     }
 
-    val dm = DistML.distribute(ratings.context, model, numBlocks)
+    val dm = DistML.distribute(ratings.context, model, 1)
     val partitioner = new HashPartitioner(numBlocks)
 
     val ratingsByUserBlock = ratings.map {
@@ -142,7 +142,7 @@ def run(params: Params) {
       updateFeatures(productOutLinks, userInLinks, partitioner,rank, params.lambda, params.alpha, false, dm)
       if (iter % 5 == 0){
         //compute rsme
-        println("RMSE == " + computeRMSE(ratings, dm))
+        println("iter :  " + iter + "  RMSE == " + computeRMSE(ratings, dm))
       }
     }
 
@@ -167,11 +167,14 @@ def run(params: Params) {
       }
       sum
     }
-    for(rating <- ratings.collect()) {
+
+    sumErr = ratings.map{ rating =>
       val diff = rating.rating - dot(users(rating.uid), products(rating.pid))
-      sumErr += diff * diff
-    }
-   math.sqrt(sumErr / ((users.size).toDouble * (products.size).toDouble) )
+      println(diff)
+      diff * diff
+    }.reduce(_+_)
+   math.sqrt(sumErr / ((users.size).toDouble * (products.size).toDouble))
+   // math.sqrt(sumErr)
   }
 
   def updateFeatures(
@@ -196,8 +199,9 @@ def run(params: Params) {
                     else model.getMatrix("product").asInstanceOf[DoubleMatrixWithIntKey]
 
       val toSend = Array.fill(numBlocks)(new ArrayBuffer[Array[Double]])
-     // val keys = new KeyList()
+      val keys = new KeyList()
       for(p <- 0 until outLinkBlock.elementIds.length; userBlock <- 0 until numBlocks) {
+        /*
         if(outLinkBlock.shouldSend(p)(userBlock)) {
           val keys = new KeyList()
           keys.addKey(outLinkBlock.elementIds(p))
@@ -205,21 +209,20 @@ def run(params: Params) {
           val result: Array[Double] = result_tmp(outLinkBlock.elementIds(p))
           toSend(userBlock) += result
         }
-        /*
+        */
+
         if(outLinkBlock.shouldSend(p)(userBlock)) {
           keys.addKey(outLinkBlock.elementIds(p))
         }
-        */
+
       }
-      /*
+
       val result_tmp = matrix.fetch(keys, session)
       for(p <- 0 until outLinkBlock.elementIds.length; userBlock <- 0 until numBlocks) {
         if(outLinkBlock.shouldSend(p)(userBlock)) {
           toSend(userBlock) += result_tmp(outLinkBlock.elementIds(p))
-
         }
       }
-      */
       toSend.zipWithIndex.map { case (buf, idx) => (idx, (bid, buf.toArray))}
     }.groupByKey(partitioner)
     .join(userInLinkBlocks)
@@ -237,7 +240,7 @@ def run(params: Params) {
           val key = inLinkBlock.elementIds(p)
           val grid = new Array[Double](rank)
           for (i <-0 until rank ) {
-            grid(i) = factors_new(p)(i) //- factors_old(key)(i)
+            grid(i) = factors_new(p)(i) - factors_old(key)(i)
           }
           factors_old.put(key, grid)
         }
