@@ -168,8 +168,16 @@ public class DoubleMatrixStore extends DataStore {
         long seed = 1L;
         Random random = new Random(seed);
         int cols = this.localData[0].length;
-        for (int i = 0; i < this.localRows.size(); i++)
-            for (int j = 0; j < cols; j++)
-                localData[i][j] = Math.abs(random.nextDouble());
+        for (int i = 0; i < this.localRows.size(); i++) {
+            double sum = 0.0;
+            for (int j = 0; j < cols; j++) {
+                localData[i][j] = Math.abs(random.nextGaussian());
+                sum += localData[i][j] * localData[i][j];
+            }
+            sum = Math.sqrt(sum);
+            for (int j=0; j<cols; j++) {
+                localData[i][j] = localData[i][j] / sum;
+            }
+        }
     }
 }
