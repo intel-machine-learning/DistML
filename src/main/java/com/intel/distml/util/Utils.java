@@ -14,8 +14,8 @@ import java.util.Enumeration;
  */
 public class Utils {
 
-    public static String getLocalIP(String networkPrefix) throws SocketException {
-        String ipAddr = "--";
+    public static String[] getNetworkAddress(String networkPrefix) throws SocketException {
+        String[] addr = new String[2];
 
         Enumeration allNetInterfaces = NetworkInterface.getNetworkInterfaces();
         InetAddress ip = null;
@@ -30,21 +30,23 @@ public class Utils {
                 {
                     if (networkPrefix != null) {
                         if (ip.getHostAddress().startsWith(networkPrefix)) {
-                            ipAddr = ip.getHostAddress();
-                            System.out.println("Server IP = " + ipAddr);
+                            addr[0] = ip.getHostAddress();
+                            addr[1] = ip.getHostName();
+                            System.out.println("Server address = " + addr[0] + ", " + addr[1]);
                         }
                     }
                     else {
                         if (!ip.getHostAddress().startsWith("127")) {
-                            ipAddr = ip.getHostAddress();
-                            System.out.println("Server IP = " + ipAddr);
+                            addr[0] = ip.getHostAddress();
+                            addr[1] = ip.getHostName();
+                            System.out.println("Server address = " + addr[0] + ", " + addr[1]);
                         }
                     }
                 }
             }
         }
 
-        return ipAddr;
+        return addr;
     }
 
     public static void waitUntil(DataInputStream is, int size) throws IOException {

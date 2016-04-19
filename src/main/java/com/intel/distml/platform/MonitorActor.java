@@ -284,7 +284,7 @@ public class MonitorActor extends UntypedActor {
 
         if (msg instanceof PSActor.RegisterRequest) {
             PSActor.RegisterRequest req = (PSActor.RegisterRequest) msg;
-            log("Parameter server registered: " + getSender());
+            log("Parameter server registered: host=" + req.hostName + ", addr=" + req.addr + ", free=" + req.freeMemory + ", total=" + req.totalMemory);
 
             parameterServers[req.parameterServerIndex] = getSender();
             psAddrs[req.parameterServerIndex] = req.addr;
@@ -362,11 +362,17 @@ public class MonitorActor extends UntypedActor {
             ((StartTraining) msg).done = true;
         }
         else if (msg instanceof PSActor.ModelSetupDone) {
+            //PSActor.ModelSetupDone t = (PSActor.ModelSetupDone) msg;
+
             psCounter++;
             if (psCounter == psCount) {
                 pendingRequest.done = true;
                 psCounter = 0;
             }
+        }
+        else if (msg instanceof PSActor.Report) {
+            PSActor.Report r = (PSActor.Report) msg;
+            log("Parameter server report: free=" + r.freeMemory + ", total=" + r.totalMemory);
         }
         else if (msg instanceof WorkerActor.RegisterRequest) {
             WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
