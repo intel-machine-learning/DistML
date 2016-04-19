@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Random;
 
 /**
  * Created by jimmy on 16-1-4.
@@ -162,5 +163,13 @@ public class DoubleMatrixStore extends DataStore {
         }
 
         return offset;
+    }
+    public void rand() {
+        long seed = 1L;
+        Random random = new Random(seed);
+        int cols = this.localData[0].length;
+        for (int i = 0; i < this.localRows.size(); i++)
+            for (int j = 0; j < cols; j++)
+                localData[i][j] = Math.abs(random.nextDouble());
     }
 }

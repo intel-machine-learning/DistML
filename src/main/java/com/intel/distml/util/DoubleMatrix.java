@@ -19,5 +19,11 @@ public class DoubleMatrix extends SparseMatrix<Long, Double> {
     protected Double[] createValueArray(int size) {
         return new Double [size];
     }
-
+    public HashMap<Long, Double[]> fetch(KeyCollection rows, Session session) {
+        HashMap<Long, Double[]> result;
+        result = super.fetch(rows, session);
+        //System.out.println(result.get(1).length);
+        return result;
+    }
 }
+
