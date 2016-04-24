@@ -66,6 +66,7 @@ object LogisticRegression {
   def trainASGD(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],
             eta : Double, maxIterations : Int, batchSize : Int): Unit = {
 
+    println("train ASGD with batch size: " + batchSize)
     val m = dm.model
     val monitorPath = dm.monitorPath
 
@@ -152,6 +153,7 @@ object LogisticRegression {
   def trainSSP(samples: RDD[(mutable.HashMap[Int, Double], Int)], dm : DistML[Iterator[(Int, String, DataStore)]],
             eta : Double, maxIterations : Int, maxLag: Int): Unit = {
 
+    println("train SSP with max lag: " + maxLag)
     val m = dm.model
     val monitorPath = dm.monitorPath
 

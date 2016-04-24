@@ -1,5 +1,7 @@
 package com.intel.distml.platform;
 
+import akka.actor.ActorRef;
+import akka.actor.UntypedActor;
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
 import com.intel.distml.util.DataStore;
@@ -20,7 +22,10 @@ import java.util.LinkedList;
  */
 public class PSAgent extends Thread {
 
-    String host;
+    ActorRef owner;
+
+    String hostName;
+    String ip;
     ServerSocket ss;
     boolean running = false;
 
@@ -29,12 +34,15 @@ public class PSAgent extends Thread {
 
     LinkedList<FetchService> clients = new LinkedList<FetchService>();
 
-    public PSAgent(Model model, HashMap<String, DataStore> stores, String psNetwordPrefix) {
+    public PSAgent(ActorRef owner, Model model, HashMap<String, DataStore> stores, String psNetwordPrefix) {
+        this.owner = owner;
         this.model = model;
         this.stores = stores;
 
         try {
-            host = Utils.getLocalIP(psNetwordPrefix);
+            String[] addr = Utils.getNetworkAddress(psNetwordPrefix);
+            ip = addr[0];
+            hostName = addr[1];
             ss = new ServerSocket(0);
             ss.setSoTimeout(1000000);
         }
@@ -44,7 +52,11 @@ public class PSAgent extends Thread {
     }
 
     public String addr() {
-        return host + ":" + ss.getLocalPort();
+        return ip + ":" + ss.getLocalPort();
+    }
+
+    public String hostName() {
+        return hostName;
     }
 
     public void disconnect() {
@@ -86,6 +98,13 @@ public class PSAgent extends Thread {
             DataStore store = stores.get(req.matrixName);
 
             log("partial data request received: " + req.matrixName + ", " + req.rows + ", " + rows);
+            long totalMemory = Runtime.getRuntime().totalMemory();
+            long freeMemory = Runtime.getRuntime().freeMemory();
+            if (freeMemory/totalMemory < 0.1) {
+                warn("memory too low: free=" + freeMemory + ", total=" + totalMemory);
+                owner.tell(new PSActor.AgentMessage(freeMemory, totalMemory), null);
+            }
+
 
             byte[] result = store.handleFetch(m.getFormat(), rows);
             DataBusProtocol.FetchResponse res = new DataBusProtocol.FetchResponse(req.matrixName, m.getFormat(), result);
@@ -169,6 +188,9 @@ public class PSAgent extends Thread {
     }
 
     private void log(String msg) {
-//        Logger.info(msg, "PSAgent");
+        Logger.debug(msg, "PSAgent");
+    }
+    private void warn(String msg) {
+        Logger.warn(msg, "PSAgent");
     }
 }

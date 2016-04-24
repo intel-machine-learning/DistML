@@ -22,6 +22,8 @@ import java.util.HashMap;
 
 public class PSActor extends UntypedActor {
 
+    public static int MIN_REPORT_INTERVAL = 1000;
+
     public static final int OP_LOAD = 0;
     public static final int OP_SAVE = 1;
     public static final int OP_ZERO = 2;
@@ -34,10 +36,16 @@ public class PSActor extends UntypedActor {
 
         final public int parameterServerIndex;
         final public String addr;
+        final public String hostName;
+        final public long freeMemory;
+        final long totalMemory;
 
-        public RegisterRequest(int parameterServerIndex, String addr) {
+        public RegisterRequest(int parameterServerIndex, String hostName, String addr) {
             this.parameterServerIndex = parameterServerIndex;
             this.addr = addr;
+            this.hostName = hostName;
+            totalMemory = Runtime.getRuntime().totalMemory();
+            freeMemory = Runtime.getRuntime().freeMemory();
         }
     }
 
@@ -73,6 +81,30 @@ public class PSActor extends UntypedActor {
         }
     }
 
+    public static class AgentMessage implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        final public long freeMemory;
+        final public long totalMemory;
+
+        public AgentMessage(long freeMemory, long totalMemory) {
+            this.freeMemory = freeMemory;
+            this.totalMemory = totalMemory;
+        }
+    }
+
+    public static class Report implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        final public long freeMemory;
+        final public long totalMemory;
+
+        public Report(long freeMemory, long totalMemory) {
+            this.freeMemory = freeMemory;
+            this.totalMemory = totalMemory;
+        }
+    }
+
     private Model model;
     private HashMap<String, DataStore> stores;
 
@@ -80,6 +112,8 @@ public class PSActor extends UntypedActor {
     private int serverIndex;
 
     private PSAgent agent;
+
+    private long lastReportTime;
 
     public static Props props(final Model model, final HashMap<String, DataStore> stores, final String monitorPath, final int parameterServerIndex, final String psNetwordPrefix) {
         return Props.create(new Creator<PSActor>() {
@@ -95,10 +129,11 @@ public class PSActor extends UntypedActor {
         this.serverIndex = serverIndex;
         this.model = model;
         this.stores = stores;
+        this.lastReportTime = 0;
 
-        agent = new PSAgent(model, stores, psNetwordPrefix);
+        agent = new PSAgent(getSelf(), model, stores, psNetwordPrefix);
         agent.start();
-        this.monitor.tell(new RegisterRequest(serverIndex, agent.addr()), getSelf());
+        this.monitor.tell(new RegisterRequest(serverIndex, agent.hostName(), agent.addr()), getSelf());
     }
 
 
@@ -135,6 +170,14 @@ public class PSActor extends UntypedActor {
             FloatMatrixStoreAdaGrad store = (FloatMatrixStoreAdaGrad) stores.get(((MonitorActor.SetAlpha) msg).matrixName);
             store.setAlpha(req.initialAlpha, req.minAlpha, req.factor);
             monitor.tell(new ModelSetupDone(), getSelf());
+        }
+        else if (msg instanceof AgentMessage) {
+            AgentMessage m = (AgentMessage) msg;
+            long now = System.currentTimeMillis();
+            if ((now - lastReportTime) > MIN_REPORT_INTERVAL) {
+                monitor.tell(new Report(m.freeMemory, m.totalMemory), getSelf());
+                lastReportTime = now;
+            }
         }
         else if (msg instanceof MonitorActor.IterationDone) {
             agent.closeClients();
