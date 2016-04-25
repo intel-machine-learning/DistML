@@ -44,7 +44,7 @@ public class PSAgent extends Thread {
             ip = addr[0];
             hostName = addr[1];
             ss = new ServerSocket(0);
-            ss.setSoTimeout(1000000);
+//            ss.setSoTimeout(1000000);
         }
         catch (IOException e) {
             e.printStackTrace();

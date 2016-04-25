@@ -6,7 +6,7 @@ import java.util
 import java.util.Properties
 
 import akka.actor.{ActorRef, ActorSystem}
-import com.intel.distml.platform.{DistML, ParamServerDriver}
+import com.intel.distml.platform.{Clock, DistML, ParamServerDriver}
 import com.intel.distml.util.store.DoubleArrayStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, FileSystem}
@@ -84,6 +84,10 @@ object LogisticRegression {
 
         //var progress = 0
         var cost = 0.0
+        val fetchClock = new Clock("Fetch")
+        val trainClock = new Clock("Train")
+        val pushClock = new Clock("Push")
+
 
         while (it.hasNext) {
           batch.clear()
@@ -100,14 +104,16 @@ object LogisticRegression {
             }
           }
 
+          fetchClock.start()
           val w = wd.fetch(keys, session)
+          fetchClock.stop()
 
           val w_old = new util.HashMap[Long, Double]
           for ((key, value) <- w) {
-            //println("w[" + key + "] = " + value)
             w_old.put(key, value)
           }
 
+          trainClock.start()
           for ((x, label) <- batch) {
             var sum = 0.0
             for ((k, v) <- x) {
@@ -128,12 +134,16 @@ object LogisticRegression {
           //progress = progress + samples.size()
           //println("progress: " + progress + ", cost: " + cost)
 
+          trainClock.stop()
+
+          pushClock.start()
           for (key <- w.keySet) {
             val grad: Double = w(key) - w_old(key)
             w.put(key, grad)
           }
 
           wd.push(w, session)
+          pushClock.stop()
         }
 
         println("--- disconnect ---")
