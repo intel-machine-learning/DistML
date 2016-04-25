@@ -27,6 +27,7 @@ import org.jblas.{DoubleMatrix => DM, Solve, SimpleBlas}
 object SimpleALSObject{
   private case class Params (
                             master: String = null,
+                            psNum:  Int = 1,
                             ratingFile: String = null,
                             rank: Int = 10,
                             iterations: Int = 10,
@@ -44,6 +45,9 @@ object SimpleALSObject{
       opt[String]("master")
         .text(s"master url for spark master: ${alsParams.master}")
         .action((x, c) => c.copy(master = x))
+      opt[Int]("psNum")
+        .text(s"ps server number for ALS : ${alsParams.psNum}")
+        .action((x, c) => c.copy(psNum = x))
       opt[Int]("rank")
         .text(s"features number for ALS : ${alsParams.rank}")
         .action((x, c) => c.copy(rank = x))
@@ -95,15 +99,17 @@ case class Rating (var uid: Int, var pid: Int, var rating: Double)
 
 def run(params: Params) {
 
-    val conf = new SparkConf()
-    val sc = new SparkContext( params.master, "SimpleALS", conf)
+    val conf = new SparkConf().setAppName("SimpleALS")
+    val sc = new SparkContext(conf)
 
     val ratings = sc.textFile(params.ratingFile).map {line =>
       val fields = line.split(',')
       Rating(fields(0).toInt - 1, fields(1).toInt - 1, fields(2).toDouble)
     }
     val U = ratings.map(_.uid).distinct().count()
-    val V = ratings.map(_.pid).distinct().count()
+    //val V = ratings.map(_.pid).distinct().count()
+    //workround for gaps exsits in userids in prize
+    val V = ratings.map(_.pid).distinct().max()
 
     val numBlocks = params.blocks
     val rank = params.rank
@@ -114,7 +120,7 @@ def run(params: Params) {
       registerMatrix("product", new DoubleMatrixWithIntKey(V, rank))
     }
 
-    val dm = DistML.distribute(ratings.context, model, 1)
+    val dm = DistML.distribute(ratings.context, model, params.psNum)
     val partitioner = new HashPartitioner(numBlocks)
 
     val ratingsByUserBlock = ratings.map {
@@ -170,7 +176,7 @@ def run(params: Params) {
 
     sumErr = ratings.map{ rating =>
       val diff = rating.rating - dot(users(rating.uid), products(rating.pid))
-      println(diff)
+      //println(diff)
       diff * diff
     }.reduce(_+_)
    math.sqrt(sumErr / ((users.size).toDouble * (products.size).toDouble))
@@ -210,7 +216,6 @@ def run(params: Params) {
           toSend(userBlock) += result
         }
         */
-
         if(outLinkBlock.shouldSend(p)(userBlock)) {
           keys.addKey(outLinkBlock.elementIds(p))
         }
@@ -402,6 +407,54 @@ def run(params: Params) {
 
   def makeLinkRDDs(numBlocks: Int,ratings: RDD[(Int, Rating)])
   : (RDD[(Int, InLinkBlock)], RDD[(Int, OutLinkBlock)]) = {
+
+    val links = ratings.groupByKey(new HashPartitioner(numBlocks)).map { case (blockid, iter) => {
+      //makeInLinkBlock
+      val userIds = new ArrayBuffer[Int]()
+      val blockRatings = Array.fill(numBlocks)(new ArrayBuffer[Rating])
+      for (it <- iter) {
+        userIds += it.uid
+        blockRatings(it.pid % numBlocks) += it
+      }
+
+      val uIds = userIds.distinct.sorted
+      val numUsers = uIds.length
+      val uIdToPos = uIds.zipWithIndex.toMap
+      val ratingsForBlock = new Array[Array[(Array[Int], Array[Double])]](numBlocks)
+      for (productBlock <- 0 until numBlocks) {
+        val groupRatings = blockRatings(productBlock).groupBy(_.pid).toArray
+
+        val ordering = new Ordering[(Int, ArrayBuffer[Rating])] {
+          def compare(a: (Int, ArrayBuffer[Rating]), b: (Int, ArrayBuffer[Rating])): Int = a._1 - b._1
+
+        }
+        Sorting.quickSort(groupRatings)(ordering)
+        ratingsForBlock(productBlock) = groupRatings.map { case (p, rs) =>
+          (rs.view.map(r => uIdToPos(r.uid)).toArray, rs.view.map(_.rating).toArray)
+        }
+      }
+      val inlinkBlcok = InLinkBlock(uIds.toArray, ratingsForBlock)
+
+      //makeOutLinkBlock
+      val shouldSend = Array.fill(numUsers)(new BitSet(numBlocks))
+      for (it <- iter) {
+        shouldSend(uIdToPos(it.uid))(it.pid % numBlocks) = true
+      }
+      val outLinkBlock = OutLinkBlock(uIds.toArray, shouldSend)
+      (blockid, (inlinkBlcok, outLinkBlock))
+    }
+
+    }
+
+    links.persist(StorageLevel.MEMORY_AND_DISK)
+    (links.mapValues(_._1), links.mapValues(_._2))
+  }
+
+    //links.persist(StorageLevel.MEMORY_AND_DISK)
+    //(inblocks, outblocks)
+      /*
+
+
     val grouped = ratings.partitionBy(new HashPartitioner(numBlocks))
     val links = grouped.mapPartitionsWithIndex((blockId, elements) => {
       val ratings = elements.map{_._2}.toArray
@@ -411,7 +464,8 @@ def run(params: Params) {
     }, true)
     links.persist(StorageLevel.MEMORY_AND_DISK)
     (links.mapValues(_._1), links.mapValues(_._2))
-  }
+    */
+
 
   def randomFactor(rank: Int, rand: Random): Array[Double] = {
     val factor = Array.fill(rank)(abs(rand.nextGaussian()))
