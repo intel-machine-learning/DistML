@@ -139,6 +139,7 @@
           <shadedArtifactAttached>false</shadedArtifactAttached>
           <artifactSet>
             <includes>
+	      <include>org.jblas:jblas</include>
               <include>com.github.scopt:scopt_2.10</include>
               <include>org.apache.commons:commons-math3</include>
             </includes>
