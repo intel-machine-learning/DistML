@@ -109,7 +109,8 @@ def run(params: Params) {
     val U = ratings.map(_.uid).distinct().count()
     //val V = ratings.map(_.pid).distinct().count()
     //workround for gaps exsits in userids in prize
-    val V = ratings.map(_.pid).distinct().max()
+    val V = ratings.map(_.pid).distinct().max() + 1
+    println("xxxxxxxxxxxxxxxxxxxxxxxxxxxx V" + V)
 
     val numBlocks = params.blocks
     val rank = params.rank
