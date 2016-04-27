@@ -6,6 +6,7 @@ import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Utils;
 
 import java.io.*;
+import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 
 /**
@@ -19,6 +20,7 @@ public class DataBusProtocol {
     public static final int MSG_FETCH_RESPONSE  = 1;
     public static final int MSG_PUSH_REQUEST    = 2;
     public static final int MSG_PUSH_RESPONSE   = 3;
+    public static final int MSG_CLOSE   = 4;
 
     public static abstract class DistMLMessage implements Serializable {
 
@@ -57,13 +59,39 @@ public class DataBusProtocol {
                     msg = new FetchResponse();
                     msg.read(in, model);
                     break;
-                default:
+                case MSG_PUSH_RESPONSE:
                     msg = new PushResponse();
+                    msg.read(in, model);
+                    break;
+                default:
+                    msg = new CloseRequest();
                     msg.read(in, model);
                     break;
             }
 
             return msg;
+        }
+    }
+
+    public static class CloseRequest extends DistMLMessage {
+
+        public CloseRequest() {
+            super(MSG_CLOSE);
+        }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model);
+        }
+
+        @Override
+        public void write(DataOutputStream out, Model model) throws IOException {
+            super.write(out, model);
+        }
+
+        @Override
+        public void read(DataInputStream in, Model model) throws IOException {
+            super.read(in, model);
         }
     }
 

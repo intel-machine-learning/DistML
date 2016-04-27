@@ -125,13 +125,20 @@ public class WorkerAgent implements DataBus  {
     }
 
     public void disconnect() {
+        DataBusProtocol.CloseRequest req = new DataBusProtocol.CloseRequest();
         for (Socket s : servers) {
             try {
+
+                DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+                req.write(dos, model);
+                dos.flush();
+                s.getOutputStream().flush();
                 s.close();
             }
             catch (IOException e) {
-                //e.printStackTrace();
+                e.printStackTrace();
             }
+            log("connection closed: " + s.getRemoteSocketAddress());
         }
     }
 
@@ -182,6 +189,6 @@ public class WorkerAgent implements DataBus  {
     }
 
     private static void log(String msg) {
-//        Logger.info(msg, MODUAL);
+        Logger.info(msg, MODUAL);
     }
 }
