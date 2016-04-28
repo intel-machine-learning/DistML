@@ -1,9 +1,7 @@
 package com.intel.distml.platform;
 
 import com.intel.distml.api.Model;
-import com.intel.distml.util.DataDesc;
-import com.intel.distml.util.KeyCollection;
-import com.intel.distml.util.Utils;
+import com.intel.distml.util.*;
 
 import java.io.*;
 import java.nio.channels.SocketChannel;
@@ -34,16 +32,16 @@ public class DataBusProtocol {
             return 4;
         }
 
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             out.writeInt(type);
         }
 
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             // assume type has been read or message construction
         }
 
-        public static DistMLMessage readDistMLMessage(DataInputStream in, Model model) throws IOException {
-            Utils.waitUntil(in, 4);
+        public static DistMLMessage readDistMLMessage(AbstractDataReader in, Model model) throws Exception {
+            in.waitUntil(4);
             int type = in.readInt();
             DistMLMessage msg;
             switch(type) {
@@ -85,12 +83,12 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
         }
     }
@@ -120,18 +118,18 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
             format.write(out);
             out.writeInt(data.length);
-            out.write(data);
+            out.writeBytes(data);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
             format = new DataDesc();
-            Utils.waitUntil(in, format.sizeAsBytes() + 4);
+            in.waitUntil(format.sizeAsBytes() + 4);
             format.read(in);
             int len = in.readInt();
             data = new byte[len];
@@ -166,20 +164,20 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
             byte[] d = matrixName.getBytes();
             out.writeInt(d.length);
-            out.write(d);
+            out.writeBytes(d);
             DataDesc format = model.getMatrix(matrixName).getFormat();
             rows.write(out, format);
             cols.write(out, format);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
-            Utils.waitUntil(in, 4);
+            in.waitUntil(4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -215,17 +213,17 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
             byte[] d = matrixName.getBytes();
             out.writeInt(d.length);
-            out.write(d);
+            out.writeBytes(d);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
-            Utils.waitUntil(in, 4);
+            in.waitUntil(4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -258,18 +256,18 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
             byte[] d = matrixName.getBytes();
             out.writeInt(d.length);
-            out.write(d);
+            out.writeBytes(d);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
 
-            Utils.waitUntil(in, 4);
+            in.waitUntil(4);
             int len = in.readInt();
             byte[] buf = new byte[len];
             in.readFully(buf);
@@ -297,15 +295,15 @@ public class DataBusProtocol {
         }
 
         @Override
-        public void write(DataOutputStream out, Model model) throws IOException {
+        public void write(AbstractDataWriter out, Model model) throws Exception {
             super.write(out, model);
             out.writeInt(success? 1 : 0);
         }
 
         @Override
-        public void read(DataInputStream in, Model model) throws IOException {
+        public void read(AbstractDataReader in, Model model) throws Exception {
             super.read(in, model);
-            Utils.waitUntil(in, 4);
+            in.waitUntil(4);
             success = in.readInt() == 1;
         }
     }

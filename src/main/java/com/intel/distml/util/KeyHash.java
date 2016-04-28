@@ -57,7 +57,7 @@ public class KeyHash extends KeyCollection {
     }
 
     @Override
-    public void write(DataOutputStream out, DataDesc format) throws IOException {
+    public void write(AbstractDataWriter out, DataDesc format) throws Exception {
         super.write(out, format);
 
         out.writeInt(hashQuato);
@@ -78,7 +78,7 @@ public class KeyHash extends KeyCollection {
     }
 
     @Override
-    public void read(DataInputStream in, DataDesc format) throws IOException {
+    public void read(AbstractDataReader in, DataDesc format) throws Exception {
         //super.read(in);
         hashQuato = in.readInt();
         hashIndex = in.readInt();

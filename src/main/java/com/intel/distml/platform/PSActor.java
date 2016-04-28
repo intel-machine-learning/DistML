@@ -139,7 +139,7 @@ public class PSActor extends UntypedActor {
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        log("onReceive: " + msg);
+        //log("onReceive: " + msg);
         if (msg instanceof ModelSetup) {
             ModelSetup req = (ModelSetup) msg;
             String path = req.path;

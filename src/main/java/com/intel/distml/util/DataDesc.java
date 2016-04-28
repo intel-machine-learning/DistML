@@ -59,7 +59,7 @@ public final class DataDesc implements Serializable {
         return 24;  // keySize and valueSize are calculated in fly
     }
 
-    public void write(DataOutputStream out) throws IOException {
+    public void write(AbstractDataWriter out) throws Exception {
         out.writeInt(dataType);
         out.writeInt(keyType);
         out.writeInt(valueType);
@@ -68,7 +68,7 @@ public final class DataDesc implements Serializable {
         out.writeInt(adaGrad ? 1 : 0);
     }
 
-    public void read(DataInputStream in) throws IOException {
+    public void read(AbstractDataReader in) throws Exception {
         dataType = in.readInt();
         keyType = in.readInt();
         valueType = in.readInt();
@@ -80,7 +80,7 @@ public final class DataDesc implements Serializable {
         this.valueSize = ((valueType == ELEMENT_TYPE_INT) || (valueType == ELEMENT_TYPE_FLOAT))? 4 : 8;
     }
 
-    public Number readKey(DataInputStream is) throws IOException {
+    public Number readKey(AbstractDataReader is) throws Exception {
         if (keyType == KEY_TYPE_INT) {
             return is.readInt();
         }
@@ -90,7 +90,7 @@ public final class DataDesc implements Serializable {
     }
 
 
-    public void writeKey(Number v, DataOutputStream os) throws IOException {
+    public void writeKey(Number v, AbstractDataWriter os) throws Exception {
         if (keyType == KEY_TYPE_INT) {
             os.writeInt(v.intValue());
         }
@@ -99,7 +99,7 @@ public final class DataDesc implements Serializable {
         }
     }
 
-    public Object readValue(DataInputStream is) throws IOException {
+    public Object readValue(AbstractDataReader is) throws Exception {
         switch(valueType) {
             case ELEMENT_TYPE_INT:
                 return is.readInt();
@@ -114,7 +114,7 @@ public final class DataDesc implements Serializable {
         throw new IllegalStateException("invalid value type: " + valueType);
     }
 
-    public void writeValue(Object value, DataOutputStream os) throws IOException {
+    public void writeValue(Object value, AbstractDataWriter os) throws Exception {
         switch(valueType) {
             case ELEMENT_TYPE_INT:
                 os.writeInt((Integer) value);

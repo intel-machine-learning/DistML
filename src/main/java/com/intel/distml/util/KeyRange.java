@@ -40,7 +40,7 @@ public class KeyRange extends KeyCollection {
     }
 
     @Override
-    public void write(DataOutputStream out, DataDesc format) throws IOException {
+    public void write(AbstractDataWriter out, DataDesc format) throws Exception {
         super.write(out, format);
 
         if (format.keyType == DataDesc.KEY_TYPE_INT) {
@@ -54,7 +54,7 @@ public class KeyRange extends KeyCollection {
     }
 
     @Override
-    public void read(DataInputStream in, DataDesc format) throws IOException {
+    public void read(AbstractDataReader in, DataDesc format) throws Exception {
         if (format.keyType == DataDesc.KEY_TYPE_INT) {
             firstKey = in.readInt();
             lastKey = in.readInt();

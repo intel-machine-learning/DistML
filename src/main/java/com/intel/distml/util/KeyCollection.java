@@ -31,15 +31,15 @@ public abstract class KeyCollection implements Serializable {
         return 4;
     }
 
-    public void write(DataOutputStream out, DataDesc format) throws IOException {
+    public void write(AbstractDataWriter out, DataDesc format) throws Exception {
         out.writeInt(type);
     }
 
-    public void read(DataInputStream in, DataDesc format) throws IOException {
+    public void read(AbstractDataReader in, DataDesc format) throws Exception {
     }
 
-    public static KeyCollection readKeyCollection(DataInputStream in, DataDesc format) throws IOException {
-        Utils.waitUntil(in, 4);
+    public static KeyCollection readKeyCollection(AbstractDataReader in, DataDesc format) throws Exception {
+        in.waitUntil(4);
         int type = in.readInt();
         KeyCollection ks;
         switch(type) {
@@ -62,7 +62,7 @@ public abstract class KeyCollection implements Serializable {
 
         }
 
-        Utils.waitUntil(in, ks.sizeAsBytes(format));
+        in.waitUntil(ks.sizeAsBytes(format));
         ks.read(in, format);
 
         return ks;

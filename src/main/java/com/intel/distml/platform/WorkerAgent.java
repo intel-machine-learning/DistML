@@ -129,13 +129,13 @@ public class WorkerAgent implements DataBus  {
         for (Socket s : servers) {
             try {
 
-                DataOutputStream dos = new DataOutputStream(s.getOutputStream());
+                DefaultDataWriter dos = new DefaultDataWriter(new DataOutputStream(s.getOutputStream()));
                 req.write(dos, model);
                 dos.flush();
                 s.getOutputStream().flush();
                 s.close();
             }
-            catch (IOException e) {
+            catch (Exception e) {
                 e.printStackTrace();
             }
             log("connection closed: " + s.getRemoteSocketAddress());
@@ -144,8 +144,8 @@ public class WorkerAgent implements DataBus  {
 
 
     static class Channel extends Thread {
-        DataInputStream is;
-        DataOutputStream os;
+        AbstractDataReader is;
+        AbstractDataWriter os;
 
         Model model;
         DataBusProtocol.DistMLMessage msg;
@@ -157,8 +157,8 @@ public class WorkerAgent implements DataBus  {
         public Channel(Socket socket, Model model, DataBusProtocol.DistMLMessage msg) {
 
             try {
-                this.is = new DataInputStream(socket.getInputStream());
-                this.os = new DataOutputStream(socket.getOutputStream());
+                this.is = new DefaultDataReader(new DataInputStream(socket.getInputStream()));
+                this.os = new DefaultDataWriter(new DataOutputStream(socket.getOutputStream()));
                 this.model = model;
                 this.msg = msg;
             } catch (Exception e) {
@@ -175,7 +175,7 @@ public class WorkerAgent implements DataBus  {
                 os.writeInt(len);
                 msg.write(os, model);
 
-                Utils.waitUntil(is, 4);
+                is.waitUntil(4);
                 resultSize = is.readInt();
                 log("result size: " + resultSize);
 

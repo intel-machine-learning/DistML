@@ -4,10 +4,7 @@ import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
-import com.intel.distml.util.DataStore;
-import com.intel.distml.util.KeyCollection;
-import com.intel.distml.util.Logger;
-import com.intel.distml.util.Utils;
+import com.intel.distml.util.*;
 
 import java.io.*;
 import java.net.InetSocketAddress;
@@ -54,7 +51,6 @@ public class PSAgent extends Thread {
 
 
             channel.read(buf);
-//            log("read data: " + len + ", " + buf.position());
             if (buf.position() == len) {
                 data = buf.array();
 
@@ -71,10 +67,10 @@ public class PSAgent extends Thread {
                 return true;
             }
 
-            //log("attempt to write: " + resBuf.position() + ", " + resBuf.remaining());
+            log("attempt to write: " + resBuf.position() + ", " + resBuf.remaining());
             int len1 = resBuf.remaining();
             int len2 = channel.write(resBuf);
-            //log("write: " + len1 + ", " + len2 + ", " + resBuf.position() + ", " + resBuf.remaining());
+            log("write: " + len1 + ", " + len2 + ", " + resBuf.position() + ", " + resBuf.remaining());
             return len1 == len2;
         }
     }
@@ -179,19 +175,21 @@ public class PSAgent extends Thread {
 
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void read(SelectionKey key) throws IOException {
+    private void read(SelectionKey key) throws Exception {
         SocketChannel channel = (SocketChannel) key.channel();
         DataBuffer buf = buffers.get(channel);
         if (buf.readData(channel)) {
+
             InputStream is = new ByteArrayInputStream(buf.data);
             DataInputStream dis = new DataInputStream(is);
+            AbstractDataReader reader = new DefaultDataReader(dis);
 
-            DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(dis, model);
+            DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(reader, model);
             if (req instanceof DataBusProtocol.CloseRequest) {// worker disconnected
                 try {
                     key.cancel();
@@ -204,13 +202,15 @@ public class PSAgent extends Thread {
                 DataBusProtocol.DistMLMessage res = handle(req);
 
                 int len = res.sizeAsBytes(model);
-                ByteArrayOutputStream bdos = new ByteArrayOutputStream(len + 4);
-                DataOutputStream dos = new DataOutputStream(bdos);
-                dos.writeInt(len);
-                res.write(dos, model);
+//                ByteArrayOutputStream bdos = new ByteArrayOutputStream(len + 4);
+//                DataOutputStream dos = new DataOutputStream(bdos);
+//                dos.writeInt(len);
+//                res.write(dos, model);
 
                 buf.resBuf = ByteBuffer.allocate(len+4);
-                buf.resBuf.put(bdos.toByteArray());
+                AbstractDataWriter out = new ByteBufferDataWriter(buf.resBuf);
+                out.writeInt(len);
+                res.write(out, model);
                 buf.resBuf.flip();
 
                 key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
@@ -245,7 +245,7 @@ public class PSAgent extends Thread {
             long totalMemory = Runtime.getRuntime().totalMemory();
             long freeMemory = Runtime.getRuntime().freeMemory();
             if ((double)freeMemory/totalMemory < 0.1) {
-                warn("memory too low: free=" + freeMemory + ", total=" + totalMemory);
+                //warn("memory too low: free=" + freeMemory + ", total=" + totalMemory);
                 owner.tell(new PSActor.AgentMessage(freeMemory, totalMemory), null);
             }
 
@@ -272,7 +272,7 @@ public class PSAgent extends Thread {
     }
 
     private void log(String msg) {
-//        Logger.info(msg, "PSAgent");
+        //Logger.info(msg, "PSAgent");
     }
     private void warn(String msg) {
         Logger.warn(msg, "PSAgent");
