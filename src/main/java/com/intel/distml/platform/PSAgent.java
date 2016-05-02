@@ -4,17 +4,19 @@ import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.intel.distml.api.DMatrix;
 import com.intel.distml.api.Model;
-import com.intel.distml.util.DataStore;
-import com.intel.distml.util.KeyCollection;
-import com.intel.distml.util.Logger;
-import com.intel.distml.util.Utils;
+import com.intel.distml.util.*;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 /**
@@ -22,17 +24,73 @@ import java.util.LinkedList;
  */
 public class PSAgent extends Thread {
 
+    class DataBuffer {
+        int len = -1;
+        byte[] data;
+
+        ByteBuffer buf = ByteBuffer.allocate(4);
+
+        ByteBuffer resBuf;
+
+        void reset() {
+            len = -1;
+            buf = ByteBuffer.allocate(4);
+        }
+
+        boolean readData(SocketChannel channel) throws IOException {
+            if (len == -1) {
+                channel.read(buf);
+//                log("read head: " + buf.position());
+                if (buf.position() < 4) {
+                    return false;
+                }
+
+                len = (new DataInputStream(new ByteArrayInputStream(buf.array()))).readInt();
+                buf = ByteBuffer.allocate(len);
+            }
+
+
+            channel.read(buf);
+            if (buf.position() == len) {
+                data = buf.array();
+
+                reset();
+                return true;
+            }
+
+            return false;
+        }
+
+        boolean writeData(SocketChannel channel) throws IOException {
+            if (resBuf == null) {
+                //warn("invalid state: resbuf is null");
+                return true;
+            }
+
+            log("attempt to write: " + resBuf.position() + ", " + resBuf.remaining());
+            int len1 = resBuf.remaining();
+            int len2 = channel.write(resBuf);
+            log("write: " + len1 + ", " + len2 + ", " + resBuf.position() + ", " + resBuf.remaining());
+            return len1 == len2;
+        }
+    }
+
     ActorRef owner;
+
+    PSSync syncThread;
 
     String hostName;
     String ip;
-    ServerSocket ss;
     boolean running = false;
 
     Model model;
     HashMap<String, DataStore> stores;
 
-    LinkedList<FetchService> clients = new LinkedList<FetchService>();
+    ServerSocketChannel ss;
+    Selector selector;
+
+    HashMap<SocketChannel, DataBuffer> buffers = new HashMap<SocketChannel, DataBuffer>();
+
 
     public PSAgent(ActorRef owner, Model model, HashMap<String, DataStore> stores, String psNetwordPrefix) {
         this.owner = owner;
@@ -43,8 +101,13 @@ public class PSAgent extends Thread {
             String[] addr = Utils.getNetworkAddress(psNetwordPrefix);
             ip = addr[0];
             hostName = addr[1];
-            ss = new ServerSocket(0);
-            ss.setSoTimeout(1000000);
+
+            selector = Selector.open();
+
+            ss = ServerSocketChannel.open();
+            ss.socket().bind(new InetSocketAddress(0));
+            ss.configureBlocking(false);
+            ss.register(selector, SelectionKey.OP_ACCEPT);
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -52,7 +115,7 @@ public class PSAgent extends Thread {
     }
 
     public String addr() {
-        return ip + ":" + ss.getLocalPort();
+        return ip + ":" + ss.socket().getLocalPort();
     }
 
     public String hostName() {
@@ -62,8 +125,17 @@ public class PSAgent extends Thread {
     public void disconnect() {
         running = false;
 
+        if (syncThread != null) {
+            syncThread.disconnect();
+            try {
+                syncThread.join();
+            }
+            catch (Exception e) {}
+        }
+
         try {
-            ss.close();
+            ss.socket().close();
+            selector.close();
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -74,20 +146,105 @@ public class PSAgent extends Thread {
 
     public void closeClients() {
 
-        try {
-            while (clients.size() > 0) {
-                FetchService s = clients.removeFirst();
-                s.owner = null;
-                s.socket.close();
+        for (SocketChannel c : buffers.keySet()) {
+            try {
+                c.socket().close();
+                c.keyFor(selector).cancel();
+            }
+            catch (Exception e) {
             }
         }
-        catch (IOException e) {
-            //e.printStackTrace();
+
+        buffers.clear();
+    }
+
+    @Override
+    public void run() {
+        running = true;
+
+        try {
+            while (running) {
+                selector.select();
+                Iterator ite = selector.selectedKeys().iterator();
+                while (ite.hasNext()) {
+                    SelectionKey key = (SelectionKey) ite.next();
+                    //log("check: " + key + ", " + key.interestOps());
+                    if (key.isAcceptable()) {
+                        SocketChannel channel = ss.accept();
+                        if (channel != null) {
+                            log("worker connected: " + channel.socket().getRemoteSocketAddress());
+                            channel.configureBlocking(false);
+                            buffers.put(channel, new DataBuffer());
+                            channel.register(this.selector, SelectionKey.OP_READ);
+                        }
+                    } else if (key.isReadable()) {
+                        read(key);
+                    } else if (key.isWritable()) {
+                        write(key);
+                    }
+
+                }
+            }
+        } catch (Exception e) {
+            if (running)
+                e.printStackTrace();
+        }
+    }
+
+    private void read(SelectionKey key) throws Exception {
+        SocketChannel channel = (SocketChannel) key.channel();
+        DataBuffer buf = buffers.get(channel);
+        if (buf.readData(channel)) {
+            InputStream is = new ByteArrayInputStream(buf.data);
+            DataInputStream dis = new DataInputStream(is);
+            AbstractDataReader reader = new DefaultDataReader(dis);
+
+            DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(reader, model);
+            log("data request received: " + req);
+            if (req instanceof DataBusProtocol.CloseRequest) {// worker disconnected
+                try {
+                    key.cancel();
+                    ((SocketChannel) key.channel()).socket().close();
+                }
+                catch (IOException e){}
+            }
+            else if (req instanceof DataBusProtocol.SyncRequest) {// request from standby server
+                try {
+                    key.cancel();
+                    channel.configureBlocking(true);
+                    syncThread = new PSSync(owner, model, stores);
+                    syncThread.asPrimary(channel.socket());
+                }
+                catch (IOException e){ e. printStackTrace(); }
+            }
+            else {
+                DataBusProtocol.DistMLMessage res = handle(req);
+
+                int len = res.sizeAsBytes(model);
+
+                buf.resBuf = ByteBuffer.allocate(len+4);
+                AbstractDataWriter out = new ByteBufferDataWriter(buf.resBuf);
+                out.writeInt(len);
+                res.write(out, model);
+                buf.resBuf.flip();
+
+                key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
+            }
+        }
+    }
+
+    private void write(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        DataBuffer buf = buffers.get(channel);
+        if (buf.writeData(channel)) {
+            buf.resBuf = null;
+            key.interestOps(key.interestOps() & (~SelectionKey.OP_WRITE));
+            //log("unregister with OP_WRITE: " + key + ", " + key.interestOps());
         }
     }
 
     public DataBusProtocol.DistMLMessage handle(DataBusProtocol.DistMLMessage msg) {
-        log("handle: " + msg);
+        //log("handle: " + msg);
         if (msg instanceof DataBusProtocol.FetchRequest) {// Fetch parameters
             DataBusProtocol.FetchRequest req = (DataBusProtocol.FetchRequest)msg;
 
@@ -100,11 +257,10 @@ public class PSAgent extends Thread {
             log("partial data request received: " + req.matrixName + ", " + req.rows + ", " + rows);
             long totalMemory = Runtime.getRuntime().totalMemory();
             long freeMemory = Runtime.getRuntime().freeMemory();
-            if (freeMemory/totalMemory < 0.1) {
-                warn("memory too low: free=" + freeMemory + ", total=" + totalMemory);
+            if ((double)freeMemory/totalMemory < 0.1) {
+                //warn("memory too low: free=" + freeMemory + ", total=" + totalMemory);
                 owner.tell(new PSActor.AgentMessage(freeMemory, totalMemory), null);
             }
-
 
             byte[] result = store.handleFetch(m.getFormat(), rows);
             DataBusProtocol.FetchResponse res = new DataBusProtocol.FetchResponse(req.matrixName, m.getFormat(), result);
@@ -128,67 +284,8 @@ public class PSAgent extends Thread {
         return null;
     }
 
-    public void run() {
-        log("PSAgent: tid=" + Thread.currentThread().getId());
-        running = true;
-
-        while (running) {
-            try {
-                Socket s = ss.accept();
-                log("worker connected: " + s.getInetAddress());
-                FetchService c = new FetchService(this, s);
-                clients.add(c);
-                c.start();
-            } catch (IOException e) {
-                if (running)
-                    e.printStackTrace();
-            }
-        }
-    }
-
-    class FetchService extends Thread {
-
-        PSAgent owner;
-        Socket socket;
-        DataInputStream is;
-        DataOutputStream os;
-
-        public FetchService(PSAgent owner, Socket socket) {
-            this.owner = owner;
-            try {
-                this.socket = socket;
-                this.is = new DataInputStream(socket.getInputStream());
-                this.os = new DataOutputStream(socket.getOutputStream());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        public void run() {
-            log("FetchService: tid=" + Thread.currentThread().getId());
-            try {
-                while(true) {
-                    log("reading...");
-                    Utils.waitUntil(is, 4);
-                    int reqSize = is.readInt();
-                    log("request size: " + reqSize);
-                    DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(is, model);
-                    DataBusProtocol.DistMLMessage res = handle(req);
-
-                    int len = res.sizeAsBytes(model);
-                    log("write len: " + len);
-                    os.writeInt(len);
-                    res.write(os, model);
-                }
-            } catch (Exception e) {
-                if (owner != null)
-                    e.printStackTrace();
-            }
-        }
-    }
-
     private void log(String msg) {
-        Logger.debug(msg, "PSAgent");
+        Logger.info(msg, "PSAgent");
     }
     private void warn(String msg) {
         Logger.warn(msg, "PSAgent");

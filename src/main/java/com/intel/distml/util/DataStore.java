@@ -16,6 +16,9 @@ import java.util.Map;
  */
 public abstract class DataStore {
 
+    public abstract KeyCollection rows();
+    public abstract int rowSize();
+
     public void rand() {};
 
     public void zero() {};
@@ -29,6 +32,11 @@ public abstract class DataStore {
     public abstract void writeAll(DataOutputStream os) throws IOException;
 
     public abstract void readAll(DataInputStream is) throws IOException;
+
+    public abstract void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException;
+
+    public abstract void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException;
+
 
     public static HashMap<String, DataStore> createStores(Model model, int serverIndex) {
         HashMap<String, DataStore> stores = new HashMap<String, DataStore>();

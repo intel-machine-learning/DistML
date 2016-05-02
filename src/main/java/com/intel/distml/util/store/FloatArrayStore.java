@@ -17,6 +17,13 @@ public class FloatArrayStore extends DataStore {
     transient KeyCollection localRows;
     transient float[] localData;
 
+    public KeyCollection rows() {
+        return localRows;
+    }
+    public int rowSize() {
+        return 1;
+    }
+
     public void init(KeyCollection keys) {
         this.localRows = keys;
         localData = new float[(int)keys.size()];
@@ -52,13 +59,27 @@ public class FloatArrayStore extends DataStore {
     public void writeAll(DataOutputStream os) throws IOException {
         System.out.println("saving to: " + localData.length);
         for (int i = 0; i < localData.length; i++) {
-            os.writeDouble(localData[i]);
+            os.writeFloat(localData[i]);
         }
     }
 
     @Override
     public void readAll(DataInputStream is) throws IOException {
         for (int i = 0; i < localData.length; i++) {
+            localData[i] = is.readFloat();
+        }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            os.writeFloat(localData[i]);
+        }
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
             localData[i] = is.readFloat();
         }
     }

@@ -16,6 +16,7 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
     public static final int ALPHA_SIZE = 4;
 
     transient KeyCollection localRows;
+    transient int rowSize;
     transient float[][] localData;
 
     transient float initialAlpha, minAlpha;
@@ -27,15 +28,23 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
     transient int maxDeltaRow = 0;
     transient int maxDeltaCol = 0;
 
+    public KeyCollection rows() {
+        return localRows;
+    }
+    public int rowSize() {
+        return rowSize;
+    }
+
     public void init(KeyCollection keys, int cols) {
         this.localRows = keys;
-        localData = new float[(int)keys.size()][cols];
+        this.rowSize = cols;
+        localData = new float[(int)localRows.size()][rowSize];
 
-        alpha = new float[(int)keys.size()][cols];
-        delta = new float[(int)keys.size()][cols];
+        alpha = new float[(int)localRows.size()][rowSize];
+        delta = new float[(int)localRows.size()][rowSize];
 
-        for (int i = 0; i < keys.size(); i++) {
-            for (int j = 0; j < cols; j++) {
+        for (int i = 0; i < localRows.size(); i++) {
+            for (int j = 0; j < rowSize; j++) {
                 localData[i][j] = 0.0f;
                 alpha[i][j] = 0.0f;
                 delta[i][j] = 0.0f;
@@ -47,13 +56,12 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
         System.out.println("init with random values");
 
         int rows = (int) localRows.size();
-        int cols = localData[0].length;
 
         Random r = new Random();
         for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
+            for (int j = 0; j < rowSize; j++) {
                 int a = r.nextInt(100);
-                localData[i][j] = (a / 100.0f - 0.5f) / cols;
+                localData[i][j] = (a / 100.0f - 0.5f) / rowSize;
             }
         }
     }
@@ -77,10 +85,9 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
         System.out.println("init with value: " + v);
 
         int rows = (int) localRows.size();
-        int cols = localData[0].length;
 
         for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
+            for (int j = 0; j < rowSize; j++) {
                 localData[i][j] = v;
             }
         }
@@ -90,10 +97,9 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
         System.out.println("init alpha with value: " + v);
 
         int rows = (int) localRows.size();
-        int cols = alpha[0].length;
 
         for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
+            for (int j = 0; j < rowSize; j++) {
                 alpha[i][j] = v;
             }
         }
@@ -101,20 +107,35 @@ public class FloatMatrixStoreAdaGrad extends DataStore {
 
     @Override
     public void writeAll(DataOutputStream os) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
             for (int j = 0; j < rowSize; j++) {
-                os.writeDouble(localData[i][j]);
+                os.writeFloat(localData[i][j]);
             }
         }
     }
 
     @Override
     public void readAll(DataInputStream is) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                localData[i][j] = is.readFloat();
+            }
+        }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                os.writeFloat(localData[i][j]);
+            }
+        }
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        int rowSize = (int) localRows.size();
+        for (int i = fromRow; i <= toRow; i++) {
             for (int j = 0; j < rowSize; j++) {
                 localData[i][j] = is.readFloat();
             }

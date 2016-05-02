@@ -28,7 +28,7 @@ public class KeyList extends KeyCollection {
     }
 
     @Override
-    public void write(DataOutputStream out, DataDesc format) throws IOException {
+    public void write(AbstractDataWriter out, DataDesc format) throws Exception {
         super.write(out, format);
 
         out.writeInt(keys.size());
@@ -43,7 +43,7 @@ public class KeyList extends KeyCollection {
     }
 
     @Override
-    public void read(DataInputStream in, DataDesc format) throws IOException {
+    public void read(AbstractDataReader in, DataDesc format) throws Exception {
 
         int count = in.readInt();
         if (format.keyType == DataDesc.KEY_TYPE_INT) {

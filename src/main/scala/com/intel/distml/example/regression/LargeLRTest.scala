@@ -1,29 +1,22 @@
 package com.intel.distml.example.regression
 
-import java.util
-
-import com.intel.distml.api.Model
 import com.intel.distml.platform.DistML
+import com.intel.distml.regression.{LogisticRegression => LR}
 import com.intel.distml.util.DataStore
-import com.intel.distml.util.scala.DoubleArrayWithIntKey
-import com.intel.distml.util.store.DoubleArrayStore
 import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 
 import scala.collection.mutable.HashMap
 
-import com.intel.distml.regression.{LogisticRegression => LR}
-
 /**
  * Created by yunlong on 3/11/16.
  */
-object MelBlanc {
+object LargeLRTest {
 
   private case class Params(
                              runType: String = "train",
                              psCount: Int = 1,
-                             psBackup : Boolean = false,
                              trainType : String = "ssp",
                              maxIterations: Int = 100,
                              batchSize: Int = 100,  // for asgd only
@@ -38,7 +31,10 @@ object MelBlanc {
   def parseBlanc(line: String): (HashMap[Int, Double], Int) = {
     val s = line.split(" ")
 
-    var label = Integer.parseInt(s(0))
+    var a = java.lang.Float.parseFloat("1.0")
+    var b = a.toInt
+    var c = java.lang.Float.parseFloat(s(0))
+    var label = java.lang.Float.parseFloat(s(0)).toInt
 
     val x = new HashMap[Int, Double]();
     for (i <- 1 to s.length - 1) {
@@ -54,17 +50,14 @@ object MelBlanc {
 
     val defaultParams = Params()
 
-    val parser = new OptionParser[Params]("MelBlanc") {
-      head("MelBlanc: an example of small logistic regression.")
+    val parser = new OptionParser[Params]("LargeLRExample") {
+      head("LargeLRExample: an example for logistic regression with big dimension.")
       opt[String]("runType")
         .text(s"train for training model, test for testing existed model. default: ${defaultParams.runType}")
         .action((x, c) => c.copy(runType = x))
       opt[Int]("psCount")
         .text(s"number of parameter servers. default: ${defaultParams.psCount}")
         .action((x, c) => c.copy(psCount = x))
-      opt[Boolean]("psBackup")
-        .text(s"whether to run with parameter server fault tolerance. default: ${defaultParams.psBackup}")
-        .action((x, c) => c.copy(psBackup = x))
       opt[String]("trainType")
         .text(s"how to train your model, asgd or ssg. default: ${defaultParams.trainType}")
         .action((x, c) => c.copy(trainType = x))
@@ -145,7 +138,7 @@ object MelBlanc {
       dm = LR.trainSSP(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.maxLag)
     }
     else if (p.trainType.equals("asgd")) {
-      dm = LR.trainASGD(sc, samples, p.psCount, p.psBackup, p.dim, p.eta, p.maxIterations, p.batchSize)
+      dm = LR.trainASGD(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.batchSize)
     }
     LR.save(dm, p.modelPath, "")
     dm.recycle()
