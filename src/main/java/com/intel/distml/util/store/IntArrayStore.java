@@ -19,6 +19,13 @@ public class IntArrayStore extends DataStore {
     transient KeyCollection localRows;
     transient int[] localData;
 
+    public KeyCollection rows() {
+        return localRows;
+    }
+    public int rowSize() {
+        return 1;
+    }
+
     public void init(KeyCollection keys) {
         this.localRows = keys;
         localData = new int[(int)keys.size()];
@@ -49,6 +56,20 @@ public class IntArrayStore extends DataStore {
     @Override
     public void readAll(DataInputStream is) throws IOException {
         for (int i = 0; i < localData.length; i++) {
+            localData[i] = is.readInt();
+        }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            os.writeInt(localData[i]);
+        }
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
             localData[i] = is.readInt();
         }
     }

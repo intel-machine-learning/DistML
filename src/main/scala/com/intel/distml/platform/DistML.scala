@@ -12,9 +12,10 @@ import com.intel.distml.util.scala.DoubleArrayWithIntKey
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, FileSystem}
-import org.apache.spark.SparkContext
+import org.apache.spark.{JavaSparkListener, SparkContext}
 
 import org.apache.spark.rdd.RDD
+import org.apache.spark.scheduler._
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -40,7 +41,7 @@ system: ActorSystem,
 val monitorPath : String,
 monitorActor : ActorRef,
 psDriverThread : ParamServerDriver[T]
-)
+) extends JavaSparkListener
 {
 
   var state = DistMLState.READY
@@ -162,6 +163,13 @@ psDriverThread : ParamServerDriver[T]
     }
   }
 
+  override def onExecutorRemoved(e: SparkListenerExecutorRemoved): Unit = {
+    println("executor removed: " + e.executorId)
+    val req = new PSTerminated(e.executorId)
+    monitorActor.tell(req, null)
+  }
+
+
   def recycle(): Unit = {
     assertReady()
 
@@ -172,6 +180,24 @@ psDriverThread : ParamServerDriver[T]
 
     state = DistMLState.RECYCLED
   }
+
+//  override def onStageCompleted(stageCompleted: SparkListenerStageCompleted) { }
+//  override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted) { }
+//  override def onTaskStart(taskStart: SparkListenerTaskStart) { }
+//  override def onTaskGettingResult(taskGettingResult: SparkListenerTaskGettingResult) { }
+//  override def onTaskEnd(taskEnd: SparkListenerTaskEnd) { }
+//  override def onJobStart(jobStart: SparkListenerJobStart) { }
+//  override def onJobEnd(jobEnd: SparkListenerJobEnd) { }
+//  override def onEnvironmentUpdate(environmentUpdate: SparkListenerEnvironmentUpdate) { }
+//  override def onBlockManagerAdded(blockManagerAdded: SparkListenerBlockManagerAdded) { }
+//  override def onBlockManagerRemoved(blockManagerRemoved: SparkListenerBlockManagerRemoved) { }
+//  override def onUnpersistRDD(unpersistRDD: SparkListenerUnpersistRDD) { }
+//  override def onApplicationStart(applicationStart: SparkListenerApplicationStart) { }
+//  override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) { }
+//  override def onExecutorMetricsUpdate(executorMetricsUpdate: SparkListenerExecutorMetricsUpdate) { }
+//  override def onExecutorAdded(executorAdded: SparkListenerExecutorAdded) { }
+//  override def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved) { }
+//  override def onBlockUpdated(blockUpdated: SparkListenerBlockUpdated) { }
 
 }
 
@@ -210,10 +236,24 @@ object DistML {
   }
 
   def distribute(sc : SparkContext, model : Model, psCount : Int): DistML[Int] = {
-    distribute[Int](sc, model, psCount, dummyF)
+    distribute[Int](sc, model, psCount, false, dummyF _)
   }
 
+//  def distribute(sc : SparkContext, model : Model, psCount : Int, psBackup : Boolean): DistML[Int] = {
+//    distribute[Int](sc, model, psCount, psBackup, dummyF)
+//  }
+
+//  def distribute[T: ClassTag](sc : SparkContext, model : Model, psCount : Int,
+//                              f : Function3[Model, Int, java.util.HashMap[String, DataStore], T]): DistML[T] = {
+//    distribute[T](sc, model, psCount, false, f)
+//  }
   def distribute[T: ClassTag](sc : SparkContext, model : Model, psCount : Int,
+                            f : Function3[Model, Int, java.util.HashMap[String, DataStore], T]): DistML[T] = {
+
+    distribute[T](sc, model, psCount, false, f)
+  }
+
+  def distribute[T: ClassTag](sc : SparkContext, model : Model, psCount : Int, psBackup : Boolean,
                               f : Function3[Model, Int, java.util.HashMap[String, DataStore], T]): DistML[T] = {
 
     model.autoPartition(psCount)
@@ -231,7 +271,7 @@ object DistML {
     model.monitorPath = monitorActorRef.path.toSerializationFormatWithAddress(address)
 
     var modelBroadcast = sc.broadcast(model)
-    val psThread = new ParamServerDriver[T](sc, modelBroadcast, ACTOR_SYSTEM_CONFIG, model.monitorPath, psCount, f)
+    val psThread = new ParamServerDriver[T](sc, modelBroadcast, ACTOR_SYSTEM_CONFIG, model.monitorPath, psCount, psBackup, f)
     psThread.start()
 
     while (!model.psReady) {
@@ -239,7 +279,9 @@ object DistML {
     }
     println("=========== model distributed ==============");
 
-    new DistML[T](model, psCount, monitorActorSystem, model.monitorPath, monitorActorRef, psThread)
+    val dm = new DistML[T](model, psCount, monitorActorSystem, model.monitorPath, monitorActorRef, psThread)
+    sc.addSparkListener(dm)
+    dm
   }
 
   def saveMeta(hdfsPath : String, meta : Properties, comments: String) {

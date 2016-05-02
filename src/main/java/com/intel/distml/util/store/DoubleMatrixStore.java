@@ -15,24 +15,32 @@ public class DoubleMatrixStore extends DataStore {
     public static final int VALUE_SIZE = 8;
 
     transient KeyCollection localRows;
+    transient int rowSize;
     transient double[][] localData;
 
-    public void init(KeyCollection keys, int cols) {
-        this.localRows = keys;
-        localData = new double[(int)keys.size()][cols];
+    public KeyCollection rows() {
+        return localRows;
+    }
+    public int rowSize() {
+        return rowSize;
+    }
+
+    public void init(KeyCollection rows, int cols) {
+        this.localRows = rows;
+        this.rowSize = cols;
+
+        localData = new double[(int)localRows.size()][rowSize];
 
         Runtime r = Runtime.getRuntime();
-        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + keys.size() * cols);
-        for (int i = 0; i < keys.size(); i++)
-            for (int j = 0; j < cols; j++)
+        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + localRows.size() * cols);
+        for (int i = 0; i < localRows.size(); i++)
+            for (int j = 0; j < rowSize; j++)
                 localData[i][j] = 0.0;
 
     }
 
     @Override
     public void writeAll(DataOutputStream os) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
             for (int j = 0; j < rowSize; j++) {
                 os.writeDouble(localData[i][j]);
@@ -42,9 +50,26 @@ public class DoubleMatrixStore extends DataStore {
 
     @Override
     public void readAll(DataInputStream is) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                localData[i][j] = is.readDouble();
+            }
+        }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                os.writeDouble(localData[i][j]);
+            }
+        }
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        int rowSize = (int) localRows.size();
+        for (int i = fromRow; i <= toRow; i++) {
             for (int j = 0; j < rowSize; j++) {
                 localData[i][j] = is.readDouble();
             }

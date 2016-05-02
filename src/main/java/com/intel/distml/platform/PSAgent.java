@@ -77,6 +77,8 @@ public class PSAgent extends Thread {
 
     ActorRef owner;
 
+    PSSync syncThread;
+
     String hostName;
     String ip;
     boolean running = false;
@@ -123,6 +125,14 @@ public class PSAgent extends Thread {
     public void disconnect() {
         running = false;
 
+        if (syncThread != null) {
+            syncThread.disconnect();
+            try {
+                syncThread.join();
+            }
+            catch (Exception e) {}
+        }
+
         try {
             ss.socket().close();
             selector.close();
@@ -141,7 +151,7 @@ public class PSAgent extends Thread {
                 c.socket().close();
                 c.keyFor(selector).cancel();
             }
-            catch (IOException e) {
+            catch (Exception e) {
             }
         }
 
@@ -176,7 +186,8 @@ public class PSAgent extends Thread {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            if (running)
+                e.printStackTrace();
         }
     }
 
@@ -184,28 +195,32 @@ public class PSAgent extends Thread {
         SocketChannel channel = (SocketChannel) key.channel();
         DataBuffer buf = buffers.get(channel);
         if (buf.readData(channel)) {
-
             InputStream is = new ByteArrayInputStream(buf.data);
             DataInputStream dis = new DataInputStream(is);
             AbstractDataReader reader = new DefaultDataReader(dis);
 
             DataBusProtocol.DistMLMessage req = DataBusProtocol.DistMLMessage.readDistMLMessage(reader, model);
+            log("data request received: " + req);
             if (req instanceof DataBusProtocol.CloseRequest) {// worker disconnected
                 try {
                     key.cancel();
                     ((SocketChannel) key.channel()).socket().close();
                 }
                 catch (IOException e){}
-                log("client disconnected: " + ((SocketChannel) key.channel()).getRemoteAddress());
+            }
+            else if (req instanceof DataBusProtocol.SyncRequest) {// request from standby server
+                try {
+                    key.cancel();
+                    channel.configureBlocking(true);
+                    syncThread = new PSSync(owner, model, stores);
+                    syncThread.asPrimary(channel.socket());
+                }
+                catch (IOException e){ e. printStackTrace(); }
             }
             else {
                 DataBusProtocol.DistMLMessage res = handle(req);
 
                 int len = res.sizeAsBytes(model);
-//                ByteArrayOutputStream bdos = new ByteArrayOutputStream(len + 4);
-//                DataOutputStream dos = new DataOutputStream(bdos);
-//                dos.writeInt(len);
-//                res.write(dos, model);
 
                 buf.resBuf = ByteBuffer.allocate(len+4);
                 AbstractDataWriter out = new ByteBufferDataWriter(buf.resBuf);
@@ -214,8 +229,6 @@ public class PSAgent extends Thread {
                 buf.resBuf.flip();
 
                 key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
-                //log("register with OP_WRITE: " + key + ", " + key.interestOps());
-//                channel.socket().getOutputStream().write(bdos.toByteArray());
             }
         }
     }
@@ -272,7 +285,7 @@ public class PSAgent extends Thread {
     }
 
     private void log(String msg) {
-        //Logger.info(msg, "PSAgent");
+        Logger.info(msg, "PSAgent");
     }
     private void warn(String msg) {
         Logger.warn(msg, "PSAgent");

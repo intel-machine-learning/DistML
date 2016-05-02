@@ -18,7 +18,8 @@ public class DataBusProtocol {
     public static final int MSG_FETCH_RESPONSE  = 1;
     public static final int MSG_PUSH_REQUEST    = 2;
     public static final int MSG_PUSH_RESPONSE   = 3;
-    public static final int MSG_CLOSE   = 4;
+    public static final int MSG_SYNC_REQUEST    = 4;
+    public static final int MSG_CLOSE           = 5;
 
     public static abstract class DistMLMessage implements Serializable {
 
@@ -43,6 +44,7 @@ public class DataBusProtocol {
         public static DistMLMessage readDistMLMessage(AbstractDataReader in, Model model) throws Exception {
             in.waitUntil(4);
             int type = in.readInt();
+            System.out.println("msg type: " + type);
             DistMLMessage msg;
             switch(type) {
                 case MSG_FETCH_REQUEST:
@@ -61,6 +63,10 @@ public class DataBusProtocol {
                     msg = new PushResponse();
                     msg.read(in, model);
                     break;
+                case MSG_SYNC_REQUEST:
+                    msg = new SyncRequest();
+                    msg.read(in, model);
+                    break;
                 default:
                     msg = new CloseRequest();
                     msg.read(in, model);
@@ -75,6 +81,28 @@ public class DataBusProtocol {
 
         public CloseRequest() {
             super(MSG_CLOSE);
+        }
+
+        @Override
+        public int sizeAsBytes(Model model) {
+            return super.sizeAsBytes(model);
+        }
+
+        @Override
+        public void write(AbstractDataWriter out, Model model) throws Exception {
+            super.write(out, model);
+        }
+
+        @Override
+        public void read(AbstractDataReader in, Model model) throws Exception {
+            super.read(in, model);
+        }
+    }
+
+    public static class SyncRequest extends DistMLMessage {
+
+        public SyncRequest() {
+            super(MSG_SYNC_REQUEST);
         }
 
         @Override

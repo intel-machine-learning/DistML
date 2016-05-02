@@ -17,24 +17,31 @@ public class IntMatrixStore extends DataStore {
     public static final int VALUE_SIZE = 4;
 
     transient KeyCollection localRows;
+    transient int rowSize;
     transient int[][] localData;
+
+    public KeyCollection rows() {
+        return localRows;
+    }
+    public int rowSize() {
+        return rowSize;
+    }
 
     public void init(KeyCollection keys, int cols) {
         this.localRows = keys;
+        this.rowSize = cols;
         localData = new int[(int)keys.size()][cols];
 
         Runtime r = Runtime.getRuntime();
-        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + keys.size() * cols);
-        for (int i = 0; i < keys.size(); i++)
-            for (int j = 0; j < cols; j++)
+        System.out.println("memory: " + r.freeMemory() + ", " + r.totalMemory() + ", needed: " + localRows.size() * rowSize);
+        for (int i = 0; i < localRows.size(); i++)
+            for (int j = 0; j < rowSize; j++)
                 localData[i][j] = 0;
 
     }
 
     @Override
     public void writeAll(DataOutputStream os) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
             for (int j = 0; j < rowSize; j++) {
                 os.writeInt(localData[i][j]);
@@ -44,9 +51,26 @@ public class IntMatrixStore extends DataStore {
 
     @Override
     public void readAll(DataInputStream is) throws IOException {
-        int rowSize = (int) localRows.size();
-
         for (int i = 0; i < localData.length; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                localData[i][j] = is.readInt();
+            }
+        }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            for (int j = 0; j < rowSize; j++) {
+                os.writeInt(localData[i][j]);
+            }
+        }
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        int rowSize = (int) localRows.size();
+        for (int i = fromRow; i <= toRow; i++) {
             for (int j = 0; j < rowSize; j++) {
                 localData[i][j] = is.readInt();
             }

@@ -10,7 +10,7 @@ import akka.japi.Creator;
 import com.intel.distml.api.Model;
 import com.intel.distml.util.*;
 
-public class MonitorActor extends UntypedActor {
+public class MonitorActor extends UntypedActor implements PSManager.PSMonitor{
 
     public static final int TRAIN_BSP = 0;
     public static final int TRAIN_ASGD = 1;
@@ -57,6 +57,19 @@ public class MonitorActor extends UntypedActor {
 
         public String toString() {
             return "IterationDone";
+        }
+    }
+
+    public static class PSTerminated extends DriverRequest {
+        private static final long serialVersionUID = 1L;
+
+        public String executorId;
+        public PSTerminated(String executorId) {
+            this.executorId = executorId;
+        }
+
+        public String toString() {
+            return "PSTerminated";
         }
     }
 
@@ -233,8 +246,9 @@ public class MonitorActor extends UntypedActor {
 
     private final int psCount;
 
-    private ActorRef[] parameterServers;
-    private String[] psAddrs;
+//    private ActorRef[] parameterServers;
+//    private String[] psAddrs;
+    PSManager psManager;
 
     private LinkedList<WorkerInfo> workers;
 
@@ -253,8 +267,9 @@ public class MonitorActor extends UntypedActor {
 
     public MonitorActor(Model model) {
         this.psCount = model.psCount;
-        this.parameterServers = new ActorRef[psCount];
-        this.psAddrs = new String[psCount];
+//        this.parameterServers = new ActorRef[psCount];
+//        this.psAddrs = new String[psCount];
+        psManager = new PSManager(this, psCount);
         this.workers = new LinkedList<WorkerInfo>();
 
         this.model = model;
@@ -278,6 +293,21 @@ public class MonitorActor extends UntypedActor {
         });
     }
 
+    public void switchServer(int index, String addr, ActorRef actor) {
+        log("notify all users to switch to new server: " + index + ", " + addr);
+        WorkerActor.PsAvailable info = new WorkerActor.PsAvailable(index, addr);
+        for (WorkerInfo w : workers) {
+            w.ref.tell(info, getSelf());
+        }
+    }
+
+    public void psFail() {
+        stopWorkers();
+        stopServers();
+        stop();
+    }
+
+
     @Override
     public void onReceive(Object msg) throws Exception {
         debug("onReceive: " + msg + ", "  + getSender() );
@@ -286,62 +316,75 @@ public class MonitorActor extends UntypedActor {
             PSActor.RegisterRequest req = (PSActor.RegisterRequest) msg;
             log("Parameter server registered: host=" + req.hostName + ", addr=" + req.addr + ", free=" + req.freeMemory + ", total=" + req.totalMemory);
 
-            parameterServers[req.parameterServerIndex] = getSender();
-            psAddrs[req.parameterServerIndex] = req.addr;
-            psCounter++;
+            getContext().watch(getSender());
+            if (psManager.serverAvailable(req.index, req.executorId, req.addr, getSender())) {
+                psCounter++;
 
-            log("counter: " + psCounter + ", " + psCount);
-            if (psCounter == psCount) {
-                model.psReady = true;
-                psCounter = 0;
+                log("counter: " + psCounter + ", " + psCount);
+                if (psCounter == psCount) {
+                    model.psReady = true;
+                    psCounter = 0;
+                }
             }
+            else {
+                String addr = psManager.getAddr(req.index);
+                log("ps already registered on [" + req.index + "], reply to standby with " + addr);
+                getSender().tell(new PSActor.SyncServerInfo(addr), getSelf());
+            }
+        }
+        else if (msg instanceof Terminated) {
+            getContext().unwatch(getSender());
+            psManager.serverTerminated(getSender());
+        }
+        else if (msg instanceof PSTerminated) {
+            psManager.serverTerminated(((PSTerminated) msg).executorId);
         }
         else if (msg instanceof LoadModel) {
             pendingRequest = (DriverRequest) msg;
             String path = ((LoadModel) msg).path;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_LOAD, path), getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(new PSActor.ModelSetup(PSActor.OP_LOAD, path), getSelf());
             }
         }
         else if (msg instanceof SaveModel) {
             pendingRequest = (DriverRequest) msg;
             String path = ((SaveModel) msg).path;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_SAVE, path), getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(new PSActor.ModelSetup(PSActor.OP_SAVE, path), getSelf());
             }
         }
         else if (msg instanceof RandModel) {
             pendingRequest = (DriverRequest) msg;
             String matrixName = ((RandModel) msg).matrixName;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_RAND, matrixName), getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(new PSActor.ModelSetup(PSActor.OP_RAND, matrixName), getSelf());
             }
         }
         else if (msg instanceof SetModel) {
             pendingRequest = (DriverRequest) msg;
             String matrixName = ((SetModel) msg).matrixName;
             String value = ((SetModel) msg).value;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName, value), getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName, value), getSelf());
             }
         }
         else if (msg instanceof ZeroModel) {
             pendingRequest = (DriverRequest) msg;
             String matrixName = ((ZeroModel) msg).matrixName;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName), getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(new PSActor.ModelSetup(PSActor.OP_ZERO, matrixName), getSelf());
             }
         }
         else if (msg instanceof SetAlpha) {
             pendingRequest = (DriverRequest) msg;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(msg, getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(msg, getSelf());
             }
         }
         else if (msg instanceof IterationDone) {
             pendingRequest = (DriverRequest) msg;
-            for (int i = 0; i < parameterServers.length; i++) {
-                parameterServers[i].tell(msg, getSelf());
+            for (int i = 0; i < psCount; i++) {
+                psManager.getActor(i).tell(msg, getSelf());
             }
 
             progress = 0;
@@ -377,9 +420,10 @@ public class MonitorActor extends UntypedActor {
         else if (msg instanceof WorkerActor.RegisterRequest) {
             WorkerActor.RegisterRequest info = (WorkerActor.RegisterRequest) msg;
 
-            workers.add(new WorkerInfo(info.globalWorkerIndex, getSender()));
-            getSender().tell(new RegisterResponse(parameterServers, psAddrs), getSelf());
-        } else if (msg instanceof WorkerActor.Progress) {
+            workers.add(new WorkerInfo(info.workerIndex, getSender()));
+            getSender().tell(new RegisterResponse(psManager.getActors(), psManager.getAddrs()), getSelf());
+        }
+        else if (msg instanceof WorkerActor.Progress) {
             progress += ((WorkerActor.Progress) msg).sampleCount;
             if (trainSetSize > 0) {
                 if (progress == trainSetSize) {
@@ -392,7 +436,8 @@ public class MonitorActor extends UntypedActor {
             else {
                 log("progress: " + progress);
             }
-        } else if (msg instanceof SSP_IterationDone) {
+        }
+        else if (msg instanceof SSP_IterationDone) {
             SSP_IterationDone req = (SSP_IterationDone) msg;
 
             if (Math.abs(req.cost) > 1e-6) {
@@ -418,8 +463,9 @@ public class MonitorActor extends UntypedActor {
 
 
         } else if (msg instanceof TrainingDone) {
-            log("Traing complete");
-            stopAll();
+            log("Training complete");
+            stopServers();
+            stop();
         }
     }
 
@@ -429,17 +475,22 @@ public class MonitorActor extends UntypedActor {
         getContext().system().shutdown();
     }
 
-    private void stopAll() {
-        stopActors(parameterServers);
-
-        getContext().stop(getSelf());
-        log("Start stopping monitor");
+    private void stopWorkers() {
+        for (WorkerInfo w : workers) {
+            w.ref.tell(new WorkerActor.Command(WorkerActor.CMD_STOP), self());
+        }
     }
 
-    private void stopActors(ActorRef[] actors) {
-        for (ActorRef ps : parameterServers) {
+    private void stopServers() {
+        LinkedList<ActorRef> actors =  psManager.getAllActors();
+        for (ActorRef ps : actors) {
             ps.tell(new PSActor.Stop(), self());
         }
+    }
+
+    private void stop() {
+        getContext().stop(getSelf());
+        log("Start stopping monitor");
     }
 
     private void debug(String msg) {

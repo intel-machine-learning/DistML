@@ -19,6 +19,14 @@ public class DoubleArrayStore extends DataStore {
     transient KeyCollection localRows;
     transient double[] localData;
 
+    public KeyCollection rows() {
+        return localRows;
+    }
+
+    public int rowSize() {
+        return 1;
+    }
+
     public void init(KeyCollection keys) {
         this.localRows = keys;
         localData = new double[(int)keys.size()];
@@ -63,6 +71,22 @@ public class DoubleArrayStore extends DataStore {
         for (int i = 0; i < localData.length; i++) {
             localData[i] = is.readDouble();
         }
+    }
+
+    @Override
+    public void syncTo(DataOutputStream os, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            os.writeDouble(localData[i]);
+        }
+        System.out.println("sync done");
+    }
+
+    @Override
+    public void syncFrom(DataInputStream is, int fromRow, int toRow) throws IOException {
+        for (int i = fromRow; i <= toRow; i++) {
+            localData[i] = is.readDouble();
+        }
+        System.out.println("sync done");
     }
 
     @Override

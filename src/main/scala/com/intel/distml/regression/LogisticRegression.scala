@@ -252,6 +252,22 @@ object LogisticRegression {
     dm
   }
 
+  def trainASGD(sc : SparkContext, samples: RDD[(mutable.HashMap[Int, Double], Int)], psCount : Int,
+                psBackup : Boolean, dim : Long,
+                eta : Double, maxIterations : Int, batchSize : Int): DistML[Iterator[(Int, String, DataStore)]] = {
+
+    val m = new Model() {
+      registerMatrix("weights", new DoubleArrayWithIntKey(dim + 1))
+    }
+
+    val dm = DistML.distribute(sc, m, psCount, psBackup, DistML.defaultF)
+    val monitorPath = dm.monitorPath
+
+    trainASGD(samples, dm, eta, maxIterations, batchSize)
+
+    dm
+  }
+
   def trainSSP(sc : SparkContext, samples: RDD[(mutable.HashMap[Int, Double], Int)], psCount : Int, dim : Long,
             eta : Double, maxIterations : Int, maxLag : Int): DistML[Iterator[(Int, String, DataStore)]] = {
 

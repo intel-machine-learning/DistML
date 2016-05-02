@@ -18,7 +18,7 @@ public abstract class KeyCollection implements Serializable {
     public static final int TYPE_HASH   = 4;
 
     public static final KeyCollection EMPTY = new EmptyKeys();
-//    public static final KeyCollection SINGLE = new SINGLE_KEYS();
+    public static final KeyCollection SINGLE = new KeyRange(0, 0);
     public static final KeyCollection ALL = new AllKeys();
 
     public int type;

@@ -1,28 +1,22 @@
 package com.intel.distml.platform;
 
 import akka.actor.*;
-import akka.io.Tcp;
-import akka.io.TcpMessage;
 import akka.japi.Creator;
 import com.intel.distml.api.Session;
 import com.intel.distml.api.Model;
-import com.intel.distml.api.DataBus;
-import com.intel.distml.util.KeyCollection;
 import com.intel.distml.util.Logger;
-import scala.concurrent.duration.Duration;
 
 import java.io.Serializable;
-import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by yunlong on 12/13/14.
  */
 public class WorkerActor extends UntypedActor {
 
-    public static final int CMD_DISCONNECT = 1;
-    public static final int CMD_STOP       = 2;
+    public static final int CMD_DISCONNECT      = 1;
+    public static final int CMD_STOP            = 2;
+    public static final int CMD_PS_TERMINATED   = 3;
+    public static final int CMD_PS_AVAILABLE    = 4;
 
     public static class Progress implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -42,12 +36,34 @@ public class WorkerActor extends UntypedActor {
         }
     }
 
+    public static class PsTerminated extends Command {
+        private static final long serialVersionUID = 1L;
+
+        final public int index;
+        public PsTerminated(int index) {
+            super(CMD_PS_TERMINATED);
+            this.index = index;
+        }
+    }
+
+    public static class PsAvailable extends Command {
+        private static final long serialVersionUID = 1L;
+
+        final public int index;
+        final public String addr;
+        public PsAvailable(int index, String addr) {
+            super(CMD_PS_AVAILABLE);
+            this.index = index;
+            this.addr = addr;
+        }
+    }
+
     public static class RegisterRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        final public int globalWorkerIndex;
-        public RegisterRequest(int globalWorkerIndex) {
-            this.globalWorkerIndex = globalWorkerIndex;
+        final public int workerIndex;
+        public RegisterRequest(int workerIndex) {
+            this.workerIndex = workerIndex;
         }
     }
 
@@ -130,6 +146,10 @@ public class WorkerActor extends UntypedActor {
         else if (msg instanceof MonitorActor.SSP_IterationNext) {
             assert(pendingRequest != null);
             pendingRequest.done = true;
+        }
+        else if (msg instanceof PsAvailable) {
+            PsAvailable ps = (PsAvailable) msg;
+            de.dataBus.psAvailable(ps.index, ps.addr);
         }
         else unhandled(msg);
 	}

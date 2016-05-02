@@ -10,15 +10,11 @@ import java.util.HashMap;
  */
 public interface DataBus {
 
-//    public <T> HashMap<Long, T> fetch(String matrixName, KeyCollection rowKeys, KeyCollection colsKeys);
-//
-//    public <T> void push(String matrixName, HashMap<Long, T> updates);
-//
-//    public <T> void push(String matrixName, T[] updates);
-
     public byte[][] fetch(String matrixName, KeyCollection rowKeys, DataDesc format);
 
     public void push(String matrixName, DataDesc format, byte[][] data);
 
     public void disconnect();
+
+    public void psAvailable(int index, String addr);
 }

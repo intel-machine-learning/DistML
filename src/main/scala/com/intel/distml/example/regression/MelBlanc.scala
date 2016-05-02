@@ -23,6 +23,7 @@ object MelBlanc {
   private case class Params(
                              runType: String = "train",
                              psCount: Int = 1,
+                             psBackup : Boolean = false,
                              trainType : String = "ssp",
                              maxIterations: Int = 100,
                              batchSize: Int = 100,  // for asgd only
@@ -61,6 +62,9 @@ object MelBlanc {
       opt[Int]("psCount")
         .text(s"number of parameter servers. default: ${defaultParams.psCount}")
         .action((x, c) => c.copy(psCount = x))
+      opt[Boolean]("psBackup")
+        .text(s"whether to run with parameter server fault tolerance. default: ${defaultParams.psBackup}")
+        .action((x, c) => c.copy(psBackup = x))
       opt[String]("trainType")
         .text(s"how to train your model, asgd or ssg. default: ${defaultParams.trainType}")
         .action((x, c) => c.copy(trainType = x))
@@ -141,7 +145,7 @@ object MelBlanc {
       dm = LR.trainSSP(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.maxLag)
     }
     else if (p.trainType.equals("asgd")) {
-      dm = LR.trainASGD(sc, samples, p.psCount, p.dim, p.eta, p.maxIterations, p.batchSize)
+      dm = LR.trainASGD(sc, samples, p.psCount, p.psBackup, p.dim, p.eta, p.maxIterations, p.batchSize)
     }
     LR.save(dm, p.modelPath, "")
     dm.recycle()

@@ -7,7 +7,6 @@ import com.intel.distml.api.Model;
 
 import akka.actor.UntypedActor;
 import com.intel.distml.util.*;
-import com.intel.distml.util.scala.FloatMatrix;
 import com.intel.distml.util.store.FloatMatrixStoreAdaGrad;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -17,6 +16,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.util.HashMap;
 
@@ -34,18 +35,34 @@ public class PSActor extends UntypedActor {
     public static class RegisterRequest implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        final public int parameterServerIndex;
+        final public int index;
+        final public String executorId;
         final public String addr;
         final public String hostName;
         final public long freeMemory;
         final long totalMemory;
 
-        public RegisterRequest(int parameterServerIndex, String hostName, String addr) {
-            this.parameterServerIndex = parameterServerIndex;
+        public RegisterRequest(int index, String executorId, String hostName, String addr) {
+            this.index = index;
+            this.executorId = executorId;
             this.addr = addr;
             this.hostName = hostName;
             totalMemory = Runtime.getRuntime().totalMemory();
             freeMemory = Runtime.getRuntime().freeMemory();
+        }
+    }
+
+    public static class SyncServerInfo implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        final public String addr;
+        public SyncServerInfo(String addr) {
+            this.addr = addr;
+        }
+
+        @Override
+        public String toString() {
+            return "SyncServerInfo[" + addr + "]";
         }
     }
 
@@ -110,37 +127,48 @@ public class PSActor extends UntypedActor {
 
     private ActorSelection monitor;
     private int serverIndex;
+    private String executorId;
 
     private PSAgent agent;
+    private PSSync syncThread;
 
     private long lastReportTime;
 
-    public static Props props(final Model model, final HashMap<String, DataStore> stores, final String monitorPath, final int parameterServerIndex, final String psNetwordPrefix) {
+    public static Props props(final Model model, final HashMap<String, DataStore> stores, final String monitorPath,
+                              final int parameterServerIndex, final String executorId, final String psNetwordPrefix) {
         return Props.create(new Creator<PSActor>() {
             private static final long serialVersionUID = 1L;
             public PSActor create() throws Exception {
-                return new PSActor(model, stores, monitorPath, parameterServerIndex, psNetwordPrefix);
+                return new PSActor(model, stores, monitorPath, parameterServerIndex, executorId, psNetwordPrefix);
             }
         });
     }
 
-    PSActor(Model model, HashMap<String, DataStore> stores, String monitorPath, int serverIndex, String psNetwordPrefix) {
+    PSActor(Model model, HashMap<String, DataStore> stores, String monitorPath, int serverIndex, String executorId, String psNetwordPrefix) {
         this.monitor = getContext().actorSelection(monitorPath);
         this.serverIndex = serverIndex;
+        this.executorId = executorId;
         this.model = model;
         this.stores = stores;
         this.lastReportTime = 0;
 
         agent = new PSAgent(getSelf(), model, stores, psNetwordPrefix);
         agent.start();
-        this.monitor.tell(new RegisterRequest(serverIndex, agent.hostName(), agent.addr()), getSelf());
+        this.monitor.tell(new RegisterRequest(serverIndex, executorId, agent.hostName(), agent.addr()), getSelf());
     }
 
 
     @Override
     public void onReceive(Object msg) throws Exception {
-        //log("onReceive: " + msg);
-        if (msg instanceof ModelSetup) {
+        log("onReceive: " + msg);
+        if (msg instanceof SyncServerInfo) {
+            SyncServerInfo info = (SyncServerInfo) msg;
+            String[] s = info.addr.split(":");
+            Socket sck = new Socket(s[0], Integer.parseInt(s[1]));
+            syncThread = new PSSync(getSelf(), model, stores);
+            syncThread.asStandBy(sck);
+        }
+        else if (msg instanceof ModelSetup) {
             ModelSetup req = (ModelSetup) msg;
             String path = req.path;
             switch (req.op) {
@@ -224,6 +252,13 @@ public class PSActor extends UntypedActor {
 
     @Override
     public void postStop() {
+        if (syncThread != null) {
+            syncThread.disconnect();
+            try {
+                syncThread.join();
+            }
+            catch (Exception e) {}
+        }
         getContext().system().shutdown();
         log("Parameter server stopped");
     }
