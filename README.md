@@ -2,6 +2,8 @@
 
   DistML is a machine learning tool which allows traing very large models on Spark, it's fully compatible with Spark (tested on 1.2 or above).
   
+  <img src=https://github.com/intel-machine-learning/DistML/blob/master/doc/architect.png><img src=https://github.com/intel-machine-learning/DistML/blob/master/doc/runtime.png>
+  
   DistML provides several algorithms (LR, LDA, Word2Vec, ALS) to demonstrate its scalabilites, however, you may need to write your own algorithms based on DistML APIs(Model, Session, Matrix, DataStore...), generally, it's simple to extend existed algorithms to DistML, here we take LR as an example: [How to implement logistic regression on DistML](https://github.com/intel-machine-learning/DistML/tree/master/doc/lr-implementation.md).
 
 ### User Guide
