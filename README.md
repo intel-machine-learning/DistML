@@ -16,16 +16,16 @@
 ### User Guide
   1. [Download and build DistML](https://github.com/intel-machine-learning/DistML/tree/master/doc/build.md).
   2. [Typical options](https://github.com/intel-machine-learning/DistML/tree/master/doc/options.md).
-  3. [Run Sample - LR](https://github.com/intel-machine-learning/DistML/tree/master/doc/lr.md).
-  4. [Run Sample - MLR](https://github.com/intel-machine-learning/DistML/tree/master/doc/mlr.md).
-  5. [Run Sample - LDA](https://github.com/intel-machine-learning/DistML/tree/master/doc/lda.md).
-  6. [Run Sample - Word2Vec](https://github.com/intel-machine-learning/DistML/tree/master/doc/word2vec.md).
-  7. [Run Sample - ALS](https://github.com/intel-machine-learning/DistML/tree/master/doc/als.md).
+  3. [Run Sample - LR](https://github.com/intel-machine-learning/DistML/tree/master/doc/sample_lr.md).
+  4. [Run Sample - MLR](https://github.com/intel-machine-learning/DistML/tree/master/doc/sample_mlr.md).
+  5. [Run Sample - LDA](https://github.com/intel-machine-learning/DistML/tree/master/doc/sample_lda.md).
+  6. [Run Sample - Word2Vec](https://github.com/intel-machine-learning/DistML/tree/master/doc/sample_word2vec.md).
+  7. [Run Sample - ALS](https://github.com/intel-machine-learning/DistML/tree/master/doc/sample_als.md).
   8. [Benchmarks](https://github.com/intel-machine-learning/DistML/tree/master/doc/benchmarks.md).
-  9. [Benchmarks](https://github.com/intel-machine-learning/DistML/tree/master/doc/faq.md).
+  9. [FAQ](https://github.com/intel-machine-learning/DistML/tree/master/doc/faq.md).
 
 ### API Document
-  1. [DistML API](https://github.com/intel-machine-learning/DistML/tree/master/doc/api.md).
+  [DistML API](https://github.com/intel-machine-learning/DistML/tree/master/doc/api.md).
 
 
 ## Contributors
