@@ -6,7 +6,9 @@
   
   Reference paper: [Large Scale Distributed Deep Networks](http://research.google.com/archive/large_deep_networks_nips2012.html)
   
+  
   Runtime view:
+  
   <img src=https://github.com/intel-machine-learning/DistML/blob/master/doc/runtime.png>
   
   DistML provides several algorithms (LR, LDA, Word2Vec, ALS) to demonstrate its scalabilites, however, you may need to write your own algorithms based on DistML APIs(Model, Session, Matrix, DataStore...), generally, it's simple to extend existed algorithms to DistML, here we take LR as an example: [How to implement logistic regression on DistML](https://github.com/intel-machine-learning/DistML/tree/master/doc/lr-implementation.md).
