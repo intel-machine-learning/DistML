@@ -25,7 +25,8 @@
   9. [FAQ](https://github.com/intel-machine-learning/DistML/tree/master/doc/faq.md).
 
 ### API Document
-  [DistML API](https://github.com/intel-machine-learning/DistML/tree/master/doc/api.md).
+  1. [Source Tree](https://github.com/intel-machine-learning/DistML/tree/master/doc/src_tree.md).
+  2. [DistML API](https://github.com/intel-machine-learning/DistML/tree/master/doc/api.md).
 
 
 ## Contributors
