@@ -1,27 +1,24 @@
-Introduction
-=================
-  DistML(Distributed Machine Learning Platform) is a machine learning tool which allows traing very large models on Spark or Hadoop.
+# DistML (Distributed Machine Learning platform)
 
-Build and Run Examples
------------------
-<pre>
-  $ git clone https://github.com/intel-machine-learning/DistML.git
-  $ cd DistML
-  $ mvn package
-  $ cd data
-  $ wget http://komarix.org/ac/ds/Blanc__Mel.txt.bz2
-  $ bunzip2 Blanc__Mel.txt.bz2
-  $ <copy Blanc__Mel.txt to hdfs> 
+  DistML is a machine learning tool which allows traing very large models on Spark, it's fully compatible with Spark (tested on 1.2 or above).
+  
+  DistML provides several algorithms (LR, LDA, Word2Vec, ALS) to demonstrate its scalabilites, however, you may need to write your own algorithms based on DistML APIs(Model, Session, Matrix, DataStore...), generally, it's simple to extend existed algorithms to DistML, here we take LR as an example: [How to implement logistic regression on DistML](https://github.com/intel-machine-learning/DistML/tree/master/doc/lr-implementation.md).
 
-  $ cd ..
-  $ export DISTML_HOME=`pwd`
+### User Guide
+  1. [Download and build DistML](https://github.com/intel-machine-learning/DistML/tree/master/doc/build.md).
+  2. [Typical options](https://github.com/intel-machine-learning/DistML/tree/master/doc/options.md).
+  3. [Run Sample - LR](https://github.com/intel-machine-learning/DistML/tree/master/doc/lr.md).
+  4. [Run Sample - MLR](https://github.com/intel-machine-learning/DistML/tree/master/doc/mlr.md).
+  5. [Run Sample - LDA](https://github.com/intel-machine-learning/DistML/tree/master/doc/lda.md).
+  6. [Run Sample - Word2Vec](https://github.com/intel-machine-learning/DistML/tree/master/doc/word2vec.md).
+  7. [Run Sample - ALS](https://github.com/intel-machine-learning/DistML/tree/master/doc/als.md).
+  8. [Benchmarks](https://github.com/intel-machine-learning/DistML/tree/master/doc/benchmarks.md).
 
-  $ cd ${SPARK}/bin<br>
-  $ ./spark-submit --class com.intel.distml.example.SparseLR --master yarn://dl-s1:8088 ${DISTML_HOME}/target/distml-0.2.jar --dim 2000000000 --maxIterations 10 hdfs://dl-s1:9000/data/lr/Blanc-Mel.txt
-</pre>
+### API Document
+  1. [DistML API](https://github.com/intel-machine-learning/DistML/tree/master/doc/api.md).
 
-Contributors
------------------
+
+## Contributors
   He Yunlong (Intel)<br>
   Sun Yongjie (Intel)<br>
   Liu Lantao (Intern, Graduated)<br>
