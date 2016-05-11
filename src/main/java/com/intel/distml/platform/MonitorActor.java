@@ -284,13 +284,24 @@ public class MonitorActor extends UntypedActor implements PSManager.PSMonitor{
         log("Monitor created, psCount:" + psCount);
     }
 
+    private static final class CreatorImplementation implements Creator<MonitorActor> {  
+    	public CreatorImplementation(final Model model) {
+    		this.model = model;
+    	}
+        private static final long serialVersionUID = 1L;  
+        private Model model;
+  
+        public MonitorActor create() throws Exception {  
+            // TODO Auto-generated method stub  
+        	 return new MonitorActor(model);
+        }  
+    }  
+    
     public static Props props(final Model model) {
-        return Props.create(new Creator<MonitorActor>() {
-            private static final long serialVersionUID = 1L;
-            public MonitorActor create() throws Exception {
-                return new MonitorActor(model);
-            }
-        });
+    	
+    	 return Props.create(new CreatorImplementation(model));  
+    	
+    	
     }
 
     public void switchServer(int index, String addr, ActorRef actor) {
