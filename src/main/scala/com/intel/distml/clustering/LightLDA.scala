@@ -102,7 +102,7 @@ object LightLDA {
         val ndk = doc._1
         val words = doc._2
 
-        for (i <- 0 to words.length - 1) {
+        for (i <- words.indices) {
           val wId = words(i)._1
           val topic = words(i)._2
 
@@ -186,7 +186,7 @@ object LightLDA {
       for (key <- wt.keySet()) {
         val value = wt.get(key)
         val ts = new Array[Int](value.length)
-        for (i <- 0 to value.length - 1) ts(i) = value(i)
+        for (i <- value.indices) ts(i) = value(i)
         wt_old.put(key, ts)
       }
 
@@ -227,7 +227,7 @@ object LightLDA {
       for (key <- wt.keySet()) {
         val ts = wt.get(key)
         val old_ts = wt_old.get(key)
-        for (t <- 0 to ts.length -1) {
+        for (t <- ts.indices) {
           if (ts(t) < 0) {
             throw new IllegalStateException("invalid counter: " + key + ", " + t + ", " + ts(t))
           }
@@ -244,7 +244,7 @@ object LightLDA {
       println("push: " + (end-start))
       start = end
 
-      for (i <- 0 to samples.length-1) {
+      for (i <- samples.indices) {
         result.append(samples(i))
       }
     }
@@ -282,7 +282,7 @@ object LightLDA {
       val (ndk, words) = it.next()
 
       val t_ndk = new Array[Int](m.K)
-      for (i <- 0 to words.length - 1) {
+      for (i <- words.indices) {
         val w = words(i)._1
         val t = words(i)._2
         println("word: " + i + ", " + w + ", " + t)
@@ -334,7 +334,7 @@ object LightLDA {
       val ndk = new Array[Int](m.K)
       val wordArray = new Array[(Int, Int)](words.length)
 
-      for (i <- 0 to words.length - 1) {
+      for (i <- words.indices) {
         val w = words(i)
         keys.addKey(w)
 
@@ -354,7 +354,7 @@ object LightLDA {
       for (i <- 0 to samples.size() -1 ) {
         val (ndk, words) = samples(i)
 
-        for (n <- 0 to words.length - 1) {
+        for (n <- words.indices) {
           val w: Int = words(n)._1
           val old: Int = words(n)._2
 
@@ -383,7 +383,7 @@ object LightLDA {
     }
 
     val result = new Array[Array[Int]](samples.length)
-    for (i <- 0 to samples.size() -1 ) {
+    for (i <- samples.indices) {
       result(i) = samples(i)._1
     }
 
@@ -410,7 +410,7 @@ object LightLDA {
       val doc = it.next()
 
       val words = doc._2
-      for (i <- 0 to words.length - 1) {
+      for (i <- words.indices) {
         keys.addKey(words(i)._1)
       }
 
@@ -420,14 +420,14 @@ object LightLDA {
     val nk = dtm.fetch(KeyCollection.ALL, session)
     val nwk : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
 
-    for (i <- 0 to samples.length - 1) {
+    for (i <- samples.indices) {
       val doc = samples(i)
 
       val ndk = doc._1
       val words = doc._2
 
       nwords += words.length
-      for (n <- 0 to words.length - 1) {
+      for (n <- words.indices) {
         var l: Double = 0
         val w: Int = words(n)._1
 
@@ -495,7 +495,7 @@ object LightLDA {
 
       val words = doc._2
 
-      for (n <- 0 to words.length - 1) {
+      for (n <- words.indices) {
         val w: Int = words(n)._1
         val t: Int = words(n)._2
         nwk(w)(t) += 1
@@ -522,7 +522,7 @@ object LightLDA {
     val ndk = doc._1
     val words = doc._2
 
-    for (i <- 0 to words.length -1 ) {
+    for (i <- words.indices) {
 
       val (w, old_topic) = words(i)
       val aliasTable = tables(w)
