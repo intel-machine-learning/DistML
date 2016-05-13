@@ -28,14 +28,10 @@ public class IntArrayStore extends DataStore {
 
     public void init(KeyCollection keys) {
         this.localRows = keys;
-        if (keys.isEmpty()) {
-            localData = new int[0];
-        } else {
-            localData = new int[(int) keys.size()];
+        localData = new int[(int)keys.size()];
 
-            for (int i = 0; i < keys.size(); i++)
-                localData[i] = 0;
-        }
+        for (int i = 0; i < keys.size(); i++)
+            localData[i] = 0;
     }
 
     public int indexOf(long key) {
