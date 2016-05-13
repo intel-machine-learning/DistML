@@ -90,6 +90,8 @@ public class KeyRange extends KeyCollection {
     }
 
     public long size() {
+        if (isEmpty())
+            return 0;
         return lastKey - firstKey + 1;
     }
 
