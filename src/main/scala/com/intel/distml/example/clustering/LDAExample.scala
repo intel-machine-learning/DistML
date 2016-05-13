@@ -18,7 +18,7 @@ import scala.collection.mutable.ListBuffer
 object LDAExample {
 
   def normalizeString(src : String) : String = {
-    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase();
+    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase()
   }
 
   def fromWordsToIds(bdic : Broadcast[Dict])(line : String) : Array[Int] = {
@@ -27,7 +27,7 @@ object LDAExample {
 
     val words = line.split(" ")
 
-    var wordIDs = new ListBuffer[Int]();
+    var wordIDs = new ListBuffer[Int]()
 
     for (w <- words) {
       val wn = normalizeString(w)

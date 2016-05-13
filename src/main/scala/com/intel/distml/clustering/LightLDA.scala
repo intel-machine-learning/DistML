@@ -18,16 +18,16 @@ import _root_.scala.collection.mutable
 import _root_.scala.collection.mutable.ListBuffer
 
 /**
- * Like AliasLDA, LightLDA uses alias tables to speed up sampling.
- *
- * Created by yunlong on 12/23/15.
- */
+  * Like AliasLDA, LightLDA uses alias tables to speed up sampling.
+  *
+  * Created by yunlong on 12/23/15.
+  */
 
 object LightLDA {
 
   val MH_STEPS = 4
 
-  def train(sc : SparkContext, samples : RDD[(Array[Int], Array[(Int, Int)])], V: Int, p : LDAParams): DistML[Iterator[(Int, String, DataStore)]]  = {
+  def train(sc: SparkContext, samples: RDD[(Array[Int], Array[(Int, Int)])], V: Int, p: LDAParams): DistML[Iterator[(Int, String, DataStore)]] = {
 
     val m = new LDAModel(V, p.k, p.alpha, p.beta)
     val dm = DistML.distribute(sc, m, p.psCount, DistML.defaultF)
@@ -40,7 +40,7 @@ object LightLDA {
     dm.setTrainSetSize(trainDataSize)
 
     data.mapPartitionsWithIndex(init(m, monitorPath, batchSize)).persist(StorageLevel.MEMORY_AND_DISK).count()
-    for (iter <- 0 to p.maxIterations - 1) {
+    for (iter <- 0 until p.maxIterations) {
       println("================= iteration: " + iter + " =====================")
       //data.mapPartitionsWithIndex(verify(p, m, monitorPath)).count()
 
@@ -69,8 +69,8 @@ object LightLDA {
     dm
   }
 
-  def init(m : LDAModel, monitorPath : String, batchSize : Int)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
-            : Iterator[Int] = {
+  def init(m: LDAModel, monitorPath: String, batchSize: Int)(index: Int, it: Iterator[(Array[Int], Array[(Int, Int)])])
+  : Iterator[Int] = {
 
     println("[" + Thread.currentThread().getId + "] Init start: ")
 
@@ -109,7 +109,7 @@ object LightLDA {
           var wts = wt.get(wId)
           if (wts == null) {
             wts = new Array[Integer](m.K)
-            for (j <- 0 to m.K - 1) {
+            for (j <- 0 until m.K) {
               wts(j) = 0
             }
             wts(topic) = 1
@@ -144,8 +144,8 @@ object LightLDA {
     r.iterator
   }
 
-  def train(m : LDAModel, monitorPath : String, batchSize : Int)
-           (index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])]) : Iterator[(Array[Int], Array[(Int, Int)])] = {
+  def train(m: LDAModel, monitorPath: String, batchSize: Int)
+           (index: Int, it: Iterator[(Array[Int], Array[(Int, Int)])]): Iterator[(Array[Int], Array[(Int, Int)])] = {
 
     println("[" + Thread.currentThread().getId + "] training start: ")
     println("free memory: " + Runtime.getRuntime.freeMemory() + ", total memory: " + Runtime.getRuntime.totalMemory())
@@ -177,11 +177,11 @@ object LightLDA {
 
       val dt = dtm.fetch(KeyCollection.ALL, session)
       val dt_old = new util.HashMap[Int, Int]
-      for (i <- 0 to m.K - 1) {
+      for (i <- 0 until m.K) {
         dt_old.put(i, dt.get(i))
       }
 
-      val wt : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
+      val wt: java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
       val wt_old = new util.HashMap[Int, Array[Int]]
       for (key <- wt.keySet()) {
         val value = wt.get(key)
@@ -191,7 +191,7 @@ object LightLDA {
       }
 
       end = System.currentTimeMillis()
-      println("prefetch: " + (end-start))
+      println("prefetch: " + (end - start))
       start = end
       //showDT(dt)
       //show(wt)
@@ -203,18 +203,18 @@ object LightLDA {
         buildAliasTable(w.toInt, m.alpha, m.beta, m.alpha_sum, m.beta_sum, m.K, m.V, wt, dt, q_w_proportion_, tables)
 
       end = System.currentTimeMillis()
-      println("build table: " + (end-start))
+      println("build table: " + (end - start))
       start = end
 
       val u01 = new UniformRealDistribution
-      val u0k = new UniformIntegerDistribution(0, m.K-1)
+      val u0k = new UniformIntegerDistribution(0, m.K - 1)
       val r = new java.util.Random()
 
       for (doc <- samples)
         sampleOneDoc(m, doc, wt, dt, tables, r, u01, u0k)
 
       end = System.currentTimeMillis()
-      println("sample: " + (end-start))
+      println("sample: " + (end - start))
       start = end
 
       //showDT(dt)
@@ -241,7 +241,7 @@ object LightLDA {
       session.progress(samples.size())
 
       end = System.currentTimeMillis()
-      println("push: " + (end-start))
+      println("push: " + (end - start))
       start = end
 
       for (i <- samples.indices) {
@@ -255,30 +255,30 @@ object LightLDA {
     result.iterator
   }
 
-  def verify(m : LDAModel, monitorPath : String)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
-      : Iterator[Int] = {
+  def verify(m: LDAModel, monitorPath: String)(index: Int, it: Iterator[(Array[Int], Array[(Int, Int)])])
+  : Iterator[Int] = {
 
     val session = new Session(m, monitorPath, index)
     val dtm = m.getMatrix("doc-topics").asInstanceOf[IntArrayWithIntKey]
     val wtm = m.getMatrix("word-topics").asInstanceOf[IntMatrixWithIntKey]
 
     val dt = dtm.fetch(KeyCollection.ALL, session)
-    for (i <- 0 to m.K -1 ) {
+    for (i <- 0 until m.K) {
       println("dt(" + i + ") = " + dt(i))
     }
-    val wt : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(KeyCollection.ALL, session)
-    for (w <- 0 to m.V - 1) {
-      for (i <- 0 to m.K - 1) {
+    val wt: java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(KeyCollection.ALL, session)
+    for (w <- 0 until m.V) {
+      for (i <- 0 until m.K) {
         println("wt(" + w + ")(" + i + ") = " + wt(w)(i))
       }
     }
 
     val t_dt = new Array[Int](m.K)
     val t_wt = new Array[Array[Int]](m.V)
-    for (i <- 0 to m.V -1)
+    for (i <- 0 until m.V)
       t_wt(i) = new Array[Int](m.K)
 
-    while(it.hasNext) {
+    while (it.hasNext) {
       val (ndk, words) = it.next()
 
       val t_ndk = new Array[Int](m.K)
@@ -292,19 +292,19 @@ object LightLDA {
         t_wt(w)(t) += 1
       }
 
-      for (i <- 0 to m.K - 1) {
+      for (i <- 0 until m.K) {
         if (ndk(i) != t_ndk(i))
           throw new IllegalStateException("verify failed, ndk(" + i + "): " + ndk(i) + ", " + t_ndk(i))
       }
     }
 
-    for (i <- 0 to m.K -1 ) {
+    for (i <- 0 until m.K) {
       if (dt(i) != t_dt(i))
         throw new IllegalStateException("verify failed, dt(" + i + "): " + dt(i) + ", " + t_dt(i))
     }
 
-    for (w <- 0 to m.V - 1) {
-      for (i <- 0 to m.K - 1) {
+    for (w <- 0 until m.V) {
+      for (i <- 0 until m.K) {
         if (wt(w)(i) != t_wt(w)(i))
           throw new IllegalStateException("verify failed, wt(" + w + ")(" + i + "): " + wt(i) + ", " + t_wt(i))
       }
@@ -315,8 +315,8 @@ object LightLDA {
   }
 
 
-  def inference(m : LDAModel, monitorPath : String)
-               (index : Int, it : Iterator[Array[Int]]): Iterator[Array[Int]] = {
+  def inference(m: LDAModel, monitorPath: String)
+               (index: Int, it: Iterator[Array[Int]]): Iterator[Array[Int]] = {
 
     val session = new Session(m, monitorPath, index)
     val dtm = m.getMatrix("doc-topics").asInstanceOf[IntArrayWithIntKey]
@@ -347,30 +347,32 @@ object LightLDA {
     }
 
     val dt = dtm.fetch(KeyCollection.ALL, session)
-    val wt : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
+    val wt: java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
 
     val prob = new Array[Double](m.K)
     for (iter <- 0 to 50) {
-      for (i <- 0 to samples.size() -1 ) {
+      for (i <- samples.indices) {
         val (ndk, words) = samples(i)
 
         for (n <- words.indices) {
           val w: Int = words(n)._1
           val old: Int = words(n)._2
 
-          for (k <- 0 to m.K-1) {
+          for (k <- 0 until m.K) {
             val theta: Double = (ndk(k) + m.alpha) / (words.length + m.alpha_sum)
             val phi: Double = (wt(w)(k) + m.beta) / (dt(k) + m.beta_sum)
 
             prob(k) = theta * phi
           }
 
-          for (k <- 1 to m.K - 1) {
-            prob(k) += prob(k-1)
+          for (k <- 1 until m.K) {
+            prob(k) += prob(k - 1)
           }
 
           val u = Math.random() * prob(m.K - 1)
-          def f(i : Int, prob_mass : Array[Double], p: Double) : Int = { if (i == prob_mass.length) prob_mass.length-1 else if (prob_mass(i) > p) i else f(i+1, prob_mass, p) }
+          def f(i: Int, prob_mass: Array[Double], p: Double): Int = {
+            if (i == prob_mass.length) prob_mass.length - 1 else if (prob_mass(i) > p) i else f(i + 1, prob_mass, p)
+          }
           val topic = f(0, prob, u)
 
           if (topic != old) {
@@ -390,8 +392,8 @@ object LightLDA {
     result.iterator
   }
 
-  def perplexity(m : LDAModel, monitorPath : String)
-                (index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])]) : Iterator[(Double, Int)] = {
+  def perplexity(m: LDAModel, monitorPath: String)
+                (index: Int, it: Iterator[(Array[Int], Array[(Int, Int)])]): Iterator[(Double, Int)] = {
 
     val result = new Array[(Double, Int)](1)
     result(0) = (0.0, 0)
@@ -418,7 +420,7 @@ object LightLDA {
     }
 
     val nk = dtm.fetch(KeyCollection.ALL, session)
-    val nwk : java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
+    val nwk: java.util.HashMap[Integer, Array[Integer]] = wtm.fetch(keys, session)
 
     for (i <- samples.indices) {
       val doc = samples(i)
@@ -431,7 +433,7 @@ object LightLDA {
         var l: Double = 0
         val w: Int = words(n)._1
 
-        for (k <- 0 to m.K-1) {
+        for (k <- 0 until m.K) {
           val theta: Double = (ndk(k) + m.alpha) / (words.length + m.alpha_sum)
           val phi: Double = (nwk(w)(k) + m.beta) / (nk(k) + m.beta_sum)
           l += theta * phi
@@ -444,15 +446,15 @@ object LightLDA {
     result.iterator
   }
 
-  def buildAliasTable(w : Int, alpha : Double, beta : Double, alpha_sum : Double, beta_sum : Double,
-                      K : Int, V : Int,
+  def buildAliasTable(w: Int, alpha: Double, beta: Double, alpha_sum: Double, beta_sum: Double,
+                      K: Int, V: Int,
                       nwk: util.HashMap[Integer, Array[Integer]],
-                      nk : util.HashMap[Integer, Integer],
-                      q_w_proportion_ : Array[(Int, Float)], tables : util.HashMap[Int, AliasTable]): Unit = {
+                      nk: util.HashMap[Integer, Integer],
+                      q_w_proportion_ : Array[(Int, Float)], tables: util.HashMap[Int, AliasTable]): Unit = {
 
-    var sum : Float = 0.0f
-    for (k <- 0 to K - 1) {
-      q_w_proportion_(k) = (k, ((nwk(w)(k) + beta)/nk(k) + beta * V).toFloat)
+    var sum: Float = 0.0f
+    for (k <- 0 until K) {
+      q_w_proportion_(k) = (k, ((nwk(w)(k) + beta) / nk(k) + beta * V).toFloat)
       sum += q_w_proportion_(k)._2
     }
 
@@ -460,37 +462,37 @@ object LightLDA {
     table.init(q_w_proportion_, sum)
     tables.put(w, table)
 
-//    tables.put(w, AliasTable.generateAlias(q_w_proportion_.iterator, sum, K))
+    //    tables.put(w, AliasTable.generateAlias(q_w_proportion_.iterator, sum, K))
   }
 
-  def showDT(nk : java.util.HashMap[Integer, Integer]) {
+  def showDT(nk: java.util.HashMap[Integer, Integer]) {
     println("========showing global nk===========")
     for (i <- nk.keySet()) {
       print("n[" + i + "] = " + nk(i))
     }
   }
 
-  def show(nwk : java.util.HashMap[Integer, Array[Integer]]) {
+  def show(nwk: java.util.HashMap[Integer, Array[Integer]]) {
     println("========showing global nwk===========")
     for (i <- nwk.keySet()) {
       print("w[" + i + "]")
       val ts = nwk.get(i)
-      for (j <- 0 to ts.length -1) {
+      for (j <- ts.indices) {
         print(" " + nwk(i)(j))
       }
       println
     }
   }
 
-  def show(m : LDAModel, samples : util.LinkedList[(Array[Int], Array[(Int, Int)])]): Unit = {
+  def show(m: LDAModel, samples: util.LinkedList[(Array[Int], Array[(Int, Int)])]): Unit = {
     println("========showing local nwk===========")
 
     val nwk = new Array[Array[Int]](m.V)
-    for (i <- 0 to m.V -1 ) {
+    for (i <- 0 until m.V) {
       nwk(i) = new Array[Int](m.K)
     }
 
-    for (i <- 0 to samples.length - 1) {
+    for (i <- samples.indices) {
       val doc = samples(i)
 
       val words = doc._2
@@ -502,20 +504,20 @@ object LightLDA {
       }
     }
 
-    for (i <- 0 to m.V -1 ) {
+    for (i <- 0 until m.V) {
       print("w[" + i + "]")
-      for (j <- 0 to m.K -1) {
+      for (j <- 0 until m.K) {
         print(" " + nwk(i)(j))
       }
       println
     }
   }
 
-  def sampleOneDoc(m : LDAModel, doc : (Array[Int], Array[(Int, Int)]),
+  def sampleOneDoc(m: LDAModel, doc: (Array[Int], Array[(Int, Int)]),
                    nwk: util.HashMap[Integer, Array[Integer]],
-                   nk : util.HashMap[Integer, Integer],
-                   tables : util.HashMap[Int, AliasTable],
-                   r : java.util.Random,
+                   nk: util.HashMap[Integer, Integer],
+                   tables: util.HashMap[Int, AliasTable],
+                   r: java.util.Random,
                    u01: UniformRealDistribution,
                    u0k: UniformIntegerDistribution): Unit = {
 
@@ -537,10 +539,10 @@ object LightLDA {
         nwk(w)(old_topic) -= 1
         nk(old_topic) -= 1
 
-//        if ((ndk(old_topic) < 0) || (nwk(w)(old_topic) < 0) || (nk(old_topic) < 0))
-//          throw new IllegalStateException("invalid word-topic counter: "
-//            + ndk(old_topic) + ", " + nwk(w)(old_topic) + ", " + nk(old_topic)
-//            + ", " + w + ", " + old_topic)
+        //        if ((ndk(old_topic) < 0) || (nwk(w)(old_topic) < 0) || (nk(old_topic) < 0))
+        //          throw new IllegalStateException("invalid word-topic counter: "
+        //            + ndk(old_topic) + ", " + nwk(w)(old_topic) + ", " + nk(old_topic)
+        //            + ", " + w + ", " + old_topic)
 
         if (nwk(w)(old_topic) < 0)
           throw new IllegalStateException("invalid word-topic counter: "
@@ -550,20 +552,20 @@ object LightLDA {
         nwk(w)(new_topic) += 1
         nk(new_topic) += 1
 
-//        println("updated: " + w + ", " + old_topic + ", " + new_topic + ", " + nwk(w)(old_topic) + ", " + nwk(w)(new_topic))
+        //        println("updated: " + w + ", " + old_topic + ", " + new_topic + ", " + nwk(w)(old_topic) + ", " + nwk(w)(new_topic))
       }
     }
   }
 
-  def sample(alpha : Double, beta : Double, alpha_sum : Double, beta_sum : Double, K : Int,
+  def sample(alpha: Double, beta: Double, alpha_sum: Double, beta_sum: Double, K: Int,
              nwk: util.HashMap[Integer, Array[Integer]],
-             nk : util.HashMap[Integer, Integer],
-             ndk : Array[Int], words : Array[(Int, Int)],
-             index : Int,
-             alias : AliasTable,
-             r : java.util.Random,
+             nk: util.HashMap[Integer, Integer],
+             ndk: Array[Int], words: Array[(Int, Int)],
+             index: Int,
+             alias: AliasTable,
+             r: java.util.Random,
              u01: UniformRealDistribution,
-             u0k: UniformIntegerDistribution) : Int = {
+             u0k: UniformIntegerDistribution): Int = {
 
     val word = words(index)
     val w = word._1
@@ -655,7 +657,7 @@ object LightLDA {
         val nominator = n_td_alpha * n_tw_beta * n_s_beta_sum * proposal_s
         val denominator = n_sd_alpha * n_sw_beta * n_t_beta_sum * proposal_t
 
-        val pi = nominator / denominator;
+        val pi = nominator / denominator
 
         if (rejection < pi)
           s = t
