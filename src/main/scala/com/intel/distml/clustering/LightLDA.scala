@@ -18,10 +18,10 @@ import _root_.scala.collection.mutable
 import _root_.scala.collection.mutable.ListBuffer
 
 /**
- * Like AliasLDA, LightLDA uses alias tables to speed up sampling.
- *
- * Created by yunlong on 12/23/15.
- */
+  * Like AliasLDA, LightLDA uses alias tables to speed up sampling.
+  *
+  * Created by yunlong on 12/23/15.
+  */
 
 object LightLDA {
 
@@ -70,7 +70,7 @@ object LightLDA {
   }
 
   def init(m : LDAModel, monitorPath : String, batchSize : Int)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
-            : Iterator[Int] = {
+  : Iterator[Int] = {
 
     println("[" + Thread.currentThread().getId + "] Init start: ")
 
@@ -256,7 +256,7 @@ object LightLDA {
   }
 
   def verify(m : LDAModel, monitorPath : String)(index : Int, it : Iterator[(Array[Int], Array[(Int, Int)])])
-      : Iterator[Int] = {
+  : Iterator[Int] = {
 
     val session = new Session(m, monitorPath, index)
     val dtm = m.getMatrix("doc-topics").asInstanceOf[IntArrayWithIntKey]
@@ -460,7 +460,7 @@ object LightLDA {
     table.init(q_w_proportion_, sum)
     tables.put(w, table)
 
-//    tables.put(w, AliasTable.generateAlias(q_w_proportion_.iterator, sum, K))
+    //    tables.put(w, AliasTable.generateAlias(q_w_proportion_.iterator, sum, K))
   }
 
   def showDT(nk : java.util.HashMap[Integer, Integer]) {
@@ -537,10 +537,10 @@ object LightLDA {
         nwk(w)(old_topic) -= 1
         nk(old_topic) -= 1
 
-//        if ((ndk(old_topic) < 0) || (nwk(w)(old_topic) < 0) || (nk(old_topic) < 0))
-//          throw new IllegalStateException("invalid word-topic counter: "
-//            + ndk(old_topic) + ", " + nwk(w)(old_topic) + ", " + nk(old_topic)
-//            + ", " + w + ", " + old_topic)
+        //        if ((ndk(old_topic) < 0) || (nwk(w)(old_topic) < 0) || (nk(old_topic) < 0))
+        //          throw new IllegalStateException("invalid word-topic counter: "
+        //            + ndk(old_topic) + ", " + nwk(w)(old_topic) + ", " + nk(old_topic)
+        //            + ", " + w + ", " + old_topic)
 
         if (nwk(w)(old_topic) < 0)
           throw new IllegalStateException("invalid word-topic counter: "
@@ -550,7 +550,7 @@ object LightLDA {
         nwk(w)(new_topic) += 1
         nk(new_topic) += 1
 
-//        println("updated: " + w + ", " + old_topic + ", " + new_topic + ", " + nwk(w)(old_topic) + ", " + nwk(w)(new_topic))
+        //        println("updated: " + w + ", " + old_topic + ", " + new_topic + ", " + nwk(w)(old_topic) + ", " + nwk(w)(new_topic))
       }
     }
   }
