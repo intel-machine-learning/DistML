@@ -13,12 +13,12 @@ import scopt.OptionParser
 import scala.collection.mutable.ListBuffer
 
 /**
- * Created by yunlong on 16-3-29.
- */
+  * Created by yunlong on 16-3-29.
+  */
 object LDAExample {
 
   def normalizeString(src : String) : String = {
-    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase()
+    src.replaceAll("[^A-Z^a-z]", " ").trim().toLowerCase();
   }
 
   def fromWordsToIds(bdic : Broadcast[Dict])(line : String) : Array[Int] = {
@@ -27,7 +27,7 @@ object LDAExample {
 
     val words = line.split(" ")
 
-    var wordIDs = new ListBuffer[Int]()
+    var wordIDs = new ListBuffer[Int]();
 
     for (w <- words) {
       val wn = normalizeString(w)
@@ -68,7 +68,7 @@ object LDAExample {
         .action((x, c) => c.copy(partitions = x))
       opt[Boolean]("showPlexity")
         .text(s"Show plexity after each iteration." +
-        s" default: ${defaultParams.showPlexity}")
+          s" default: ${defaultParams.showPlexity}")
         .action((x, c) => c.copy(showPlexity = x))
       arg[String]("<input>...")
         .text("input paths (directories) to plain text corpora.")
