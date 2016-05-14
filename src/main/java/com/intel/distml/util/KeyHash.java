@@ -26,6 +26,10 @@ public class KeyHash extends KeyCollection {
     public KeyHash(int hashQuato, int hashIndex, long minKey, long maxKey) {
         super(KeyCollection.TYPE_HASH);
 
+        if (minKey > maxKey) {
+            throw new IllegalStateException("unexpected key range: (" + minKey + ", " + maxKey + ")");
+        }
+
         this.hashQuato = hashQuato;
         this.hashIndex = hashIndex;
         this.minKey = minKey;

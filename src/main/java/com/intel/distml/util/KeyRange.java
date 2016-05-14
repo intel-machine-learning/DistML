@@ -20,6 +20,11 @@ public class KeyRange extends KeyCollection {
 
     public KeyRange(long f, long l) {
         super(KeyCollection.TYPE_RANGE);
+
+        if (f > l) {
+            throw new IllegalStateException("unexpected key range: (" + f + ", " + l + ")");
+        }
+
         firstKey = f;
         lastKey = l;
     }
@@ -66,21 +71,24 @@ public class KeyRange extends KeyCollection {
     }
 
     public KeyCollection[] linearSplit(int hostNum) {
-        KeyCollection[] sets = new KeyRange[hostNum];
+        KeyCollection[] sets = new KeyCollection[hostNum];
 
-        long start = firstKey;
-        long step = (lastKey - firstKey + hostNum) / hostNum;
+        long keySize = size();
         for (int i = 0; i < hostNum; i++) {
-            long end = Math.min(start + step - 1, lastKey);
-            sets[i] = new KeyRange(start, end);
-            start += step;
+            long start = keySize * i / hostNum;
+            long end = keySize * (i + 1) / hostNum;
+            if (end == start) {
+                sets[i] = EMPTY;
+            } else {
+                sets[i] = new KeyRange(firstKey + start, firstKey + end - 1);
+            }
         }
 
         return sets;
     }
 
     public KeyCollection[] hashSplit(int hostNum) {
-        KeyCollection[] sets = new KeyHash[hostNum];
+        KeyCollection[] sets = new KeyCollection[hostNum];
 
         for (int i = 0; i < hostNum; i++) {
             sets[i] = new KeyHash(hostNum, i, firstKey, lastKey);
