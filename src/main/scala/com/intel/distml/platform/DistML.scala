@@ -12,7 +12,8 @@ import com.intel.distml.util.scala.DoubleArrayWithIntKey
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, FileSystem}
-import org.apache.spark.{JavaSparkListener, SparkContext}
+import org.apache.spark.SparkContext
+import org.apache.spark.scheduler.SparkListener
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.scheduler._
@@ -41,7 +42,7 @@ system: ActorSystem,
 val monitorPath : String,
 monitorActor : ActorRef,
 psDriverThread : ParamServerDriver[T]
-) extends JavaSparkListener
+) extends SparkListener
 {
 
   var state = DistMLState.READY
